@@ -1,64 +1,40 @@
 """
 Dashboard routes: statistics and analytics
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..database import get_db
 from ..models import Worker, Company, Department, AdditionalSpending, Revenue
 from ..schemas import DashboardStats
 from ..auth import get_current_user
+from ..cache import get_cached, set_cache
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
+    response: Response,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get dashboard statistics"""
+    """Get dashboard statistics - optimized with caching and single queries"""
+    # Check cache first
+    cached_data = get_cached(current_user.id)
+    if cached_data:
+        response.headers["X-Cache"] = "HIT"
+        return cached_data
+    
     company = db.query(Company).filter(Company.user_id == current_user.id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    # Total workers
-    total_workers = db.query(Worker).join(Department).filter(
-        Department.company_id == company.id,
-        Worker.is_active == True
-    ).count()
-    
-    # Total departments
-    total_departments = db.query(Department).filter(
-        Department.company_id == company.id
-    ).count()
-    
-    # Total payroll (sum of all active worker salaries)
-    total_payroll = db.query(func.sum(Worker.salary)).join(Department).filter(
-        Department.company_id == company.id,
-        Worker.is_active == True
-    ).scalar() or 0.0
-    
-    # Total additional spendings
-    total_spendings = db.query(func.sum(AdditionalSpending.amount)).filter(
-        AdditionalSpending.company_id == company.id
-    ).scalar() or 0.0
-    
-    # Total expenses
-    total_expenses = total_payroll + total_spendings
-    
-    # Total revenue
-    total_revenue = db.query(func.sum(Revenue.amount)).filter(
-        Revenue.company_id == company.id
-    ).scalar() or 0.0
-    
-    # Profit
-    profit = total_revenue - total_expenses
-    
-    # Department statistics - optimized with single queries
+    # Optimize: Load departments first (needed for all other queries)
     departments = db.query(Department).filter(Department.company_id == company.id).all()
     
-    # Pre-load all workers and spendings in one query each
+    # Optimize: Pre-load all data in parallel queries (reduces round-trips through ngrok)
+    # Load all workers and spendings in one query each
     all_workers = db.query(Worker).join(Department).filter(
         Department.company_id == company.id,
         Worker.is_active == True
@@ -67,6 +43,19 @@ async def get_dashboard_stats(
     all_spendings = db.query(AdditionalSpending).filter(
         AdditionalSpending.company_id == company.id
     ).all()
+    
+    all_revenues = db.query(Revenue).filter(
+        Revenue.company_id == company.id
+    ).all()
+    
+    # Calculate statistics from pre-loaded data (no additional DB queries)
+    total_workers = len(all_workers)
+    total_departments = len(departments)
+    total_payroll = sum(w.salary for w in all_workers) or 0.0
+    total_spendings = sum(s.amount for s in all_spendings) or 0.0
+    total_expenses = total_payroll + total_spendings
+    total_revenue = sum(r.amount for r in all_revenues) or 0.0
+    profit = total_revenue - total_expenses
     
     # Create lookup dictionaries for O(1) access
     workers_by_dept = {}
@@ -100,7 +89,7 @@ async def get_dashboard_stats(
             "total": dept_payroll + dept_spendings
         })
     
-    return DashboardStats(
+    result = DashboardStats(
         total_workers=total_workers,
         total_departments=total_departments,
         total_revenue=total_revenue,
@@ -110,4 +99,11 @@ async def get_dashboard_stats(
         profit=profit,
         department_stats=department_stats
     )
+    
+    # Cache the result
+    set_cache(current_user.id, result)
+    
+    response.headers["X-Cache"] = "MISS"
+    
+    return result
 

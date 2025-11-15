@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Revenue, Company
 from ..schemas import RevenueCreate, RevenueResponse
 from ..auth import get_current_user
+from ..cache import clear_cache
 
 router = APIRouter(prefix="/api/revenue", tags=["revenue"])
 
@@ -53,6 +54,10 @@ async def create_revenue(
         existing.amount = revenue_data.amount
         db.commit()
         db.refresh(existing)
+        
+        # Clear dashboard cache since stats changed
+        clear_cache(current_user.id)
+        
         return existing
     
     revenue = Revenue(
@@ -64,5 +69,9 @@ async def create_revenue(
     db.add(revenue)
     db.commit()
     db.refresh(revenue)
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return revenue
 

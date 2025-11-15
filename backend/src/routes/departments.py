@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Department, Company
 from ..schemas import DepartmentCreate, DepartmentResponse
 from ..auth import get_current_user
+from ..cache import clear_cache
 
 router = APIRouter(prefix="/api/departments", tags=["departments"])
 
@@ -44,6 +45,10 @@ async def create_department(
     db.add(department)
     db.commit()
     db.refresh(department)
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return department
 
 
@@ -68,5 +73,9 @@ async def delete_department(
     
     db.delete(department)
     db.commit()
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return {"message": "Department deleted"}
 

@@ -8,6 +8,7 @@ from ..database import get_db
 from ..models import Worker, Department, Company
 from ..schemas import WorkerCreate, WorkerUpdate, WorkerResponse
 from ..auth import get_current_user
+from ..cache import clear_cache
 
 router = APIRouter(prefix="/api/workers", tags=["workers"])
 
@@ -66,6 +67,10 @@ async def create_worker(
     db.add(worker)
     db.commit()
     db.refresh(worker)
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return worker
 
 
@@ -114,6 +119,10 @@ async def update_worker(
     
     db.commit()
     db.refresh(worker)
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return worker
 
 
@@ -138,5 +147,9 @@ async def delete_worker(
     
     db.delete(worker)
     db.commit()
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return {"message": "Worker deleted"}
 
