@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARC budget - Organization Constructor</title>
+    <link rel="stylesheet" href="/static/futuristic.css">
+</head>
+<body>
+    <div class="constructor-container">
+        <header class="constructor-header">
+            <h1>Organization Constructor</h1>
+            <nav>
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/login" class="nav-link">Logout</a>
+            </nav>
+        </header>
+
+        <div class="constructor-layout">
+            {% if error %}
+            <div class="error-message" style="grid-column: 1 / -1; margin-bottom: 1rem;">{{ error }}</div>
+            {% endif %}
+            
+            <!-- Left Panel: Forms -->
+            <div class="left-panel">
+                <!-- CEO / Master Wallet Section -->
+                <div class="form-section">
+                    <button class="form-section-toggle" onclick="toggleFormSection('ceo-section')" data-section="ceo-section">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2L3 7V17H7V12H13V17H17V7L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span>CEO & Treasury</span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <div class="form-section-content" id="ceo-section" style="display: none;">
+                        <form method="POST" action="/constructor/ceo" class="form-card">
+                            <div class="form-group">
+                                <label for="master_wallet">Master Wallet Address:</label>
+                                <input type="text" id="master_wallet" name="master_wallet" 
+                                       placeholder="0x..." required 
+                                       value="{{ ceo_data.get('master_wallet', '') if ceo_data else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="payroll_frequency">Payroll Frequency:</label>
+                                <select id="payroll_frequency" name="payroll_frequency" required>
+                                    <option value="weekly" {% if ceo_data and ceo_data.get('payroll_frequency') == 'weekly' %}selected{% endif %}>Weekly</option>
+                                    <option value="biweekly" {% if ceo_data and ceo_data.get('payroll_frequency') == 'biweekly' %}selected{% endif %}>Bi-weekly</option>
+                                    <option value="monthly" {% if ceo_data and ceo_data.get('payroll_frequency') == 'monthly' %}selected{% endif %}>Monthly</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="payroll_date">Payroll Date:</label>
+                                <input type="date" id="payroll_date" name="payroll_date" 
+                                       value="{{ ceo_data.get('payroll_date', '') if ceo_data else '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="payroll_time">Payroll Time (24-hour format):</label>
+                                <input type="time" id="payroll_time" name="payroll_time" 
+                                       placeholder="HH:MM" 
+                                       value="{{ ceo_data.get('payroll_time', '') if ceo_data else '' }}">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save CEO Settings</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Department Section -->
+                <div class="form-section">
+                    <button class="form-section-toggle" onclick="toggleFormSection('department-section')" data-section="department-section">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 4H17M3 8H17M3 12H17M3 16H17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <span>Add Department</span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <div class="form-section-content" id="department-section" style="display: none;">
+                        <form method="POST" action="/constructor/department" class="form-card">
+                            <div class="form-group">
+                                <label for="dept_name">Department Name:</label>
+                                <input type="text" id="dept_name" name="name" placeholder="e.g., Engineering" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Department</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Worker Section -->
+                <div class="form-section">
+                    <button class="form-section-toggle" onclick="toggleFormSection('worker-section')" data-section="worker-section">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 10C12.7614 10 15 7.76142 15 5C15 2.23858 12.7614 0 10 0C7.23858 0 5 2.23858 5 5C5 7.76142 7.23858 10 10 10Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2.5 20C2.5 15.5817 6.08172 12 10.5 12C14.9183 12 18.5 15.5817 18.5 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span>Add Worker</span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <div class="form-section-content" id="worker-section" style="display: none;">
+                        <form method="POST" action="/constructor/worker" class="form-card">
+                            <div class="form-group">
+                                <label for="worker_name">Name:</label>
+                                <input type="text" id="worker_name" name="name" placeholder="John" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="worker_surname">Surname:</label>
+                                <input type="text" id="worker_surname" name="surname" placeholder="Doe" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="worker_salary">Salary (USDC):</label>
+                                <input type="number" step="0.01" min="0" id="worker_salary" name="salary" placeholder="5000.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="worker_wallet">Wallet Address:</label>
+                                <input type="text" id="worker_wallet" name="wallet" placeholder="0x..." required>
+                            </div>
+                            <div class="form-group">
+                                <label for="worker_department">Department:</label>
+                                <select id="worker_department" name="department_id" required>
+                                    <option value="">Select Department</option>
+                                    {% for dept in departments %}
+                                    <option value="{{ dept.get('id', loop.index) }}">{{ dept.get('name', '') }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Worker</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Additional Spending Section -->
+                <div class="form-section">
+                    <button class="form-section-toggle" onclick="toggleFormSection('spending-section')" data-section="spending-section">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M1 4H19M3 4V16C3 17.1046 3.89543 18 5 18H15C16.1046 18 17 17.1046 17 16V4M6 4V2C6 1.44772 6.44772 1 7 1H13C13.5523 1 14 1.44772 14 2V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span>Add Additional Spending</span>
+                        <span class="toggle-icon">▼</span>
+                    </button>
+                    <div class="form-section-content" id="spending-section" style="display: none;">
+                        <form method="POST" action="/constructor/spending" class="form-card">
+                            <div class="form-group">
+                                <label for="spending_name">Spending Name:</label>
+                                <input type="text" id="spending_name" name="name" placeholder="e.g., Rent, Utilities, Subscription" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="spending_amount">Amount (USDC):</label>
+                                <input type="number" step="0.01" min="0" id="spending_amount" name="amount" placeholder="1000.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="spending_wallet">Wallet Address:</label>
+                                <input type="text" id="spending_wallet" name="wallet" placeholder="0x..." required>
+                            </div>
+                            <div class="form-group">
+                                <label for="spending_target">Assign To:</label>
+                                <select id="spending_target" name="target_type" required>
+                                    <option value="ceo">CEO</option>
+                                    {% for dept in departments %}
+                                    <option value="dept_{{ dept.get('id', loop.index) }}">{{ dept.get('name', '') }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Spending</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Organization Chart -->
+            <div class="center-panel">
+                <h2 class="organization-structure-title">ORGANIZATION STRUCTURE</h2>
+                <div class="org-chart-container">
+                    <!-- SVG for connecting lines -->
+                    <svg class="org-chart-lines" id="orgChartLines"></svg>
+                    
+                    <!-- Level 1: CEO -->
+                    <div class="org-level level-ceo">
+                        {% if ceo_data %}
+                        <div class="org-node ceo-node" id="ceo-node">
+                            <div class="org-node-icon ceo-icon">
+                                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="30" cy="30" r="28" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="30" cy="22" r="8" fill="currentColor"/>
+                                    <path d="M15 45C15 38 21 33 30 33C39 33 45 38 45 45" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <div class="crown-icon">👑</div>
+                            </div>
+                            <div class="org-node-info">
+                                <div class="org-node-name">CEO</div>
+                                <div class="org-node-position">Chief Executive Officer</div>
+                                <div class="org-node-details">{{ ceo_data.get('master_wallet', '')[:10] }}...</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="org-node ceo-node empty" id="ceo-node">
+                            <div class="org-node-icon ceo-icon">
+                                <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="30" cy="30" r="28" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
+                                    <circle cx="30" cy="22" r="8" fill="currentColor" opacity="0.3"/>
+                                    <path d="M15 45C15 38 21 33 30 33C39 33 45 38 45 45" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+                                </svg>
+                            </div>
+                            <div class="org-node-info">
+                                <div class="org-node-name">CEO</div>
+                                <div class="org-node-position">Not Set</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Level 2: Departments -->
+                    {% if departments %}
+                    <div class="org-level level-departments">
+                        {% for dept in departments %}
+                        {% set dept_id = dept.get('id', loop.index) %}
+                        <div class="org-node department-node" data-dept-id="{{ dept_id }}" id="dept-{{ dept_id }}">
+                            <div class="org-node-icon department-icon">
+                                <svg width="50" height="50" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="30" cy="30" r="28" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="30" cy="22" r="8" fill="currentColor"/>
+                                    <path d="M15 45C15 38 21 33 30 33C39 33 45 38 45 45" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <div class="org-node-info">
+                                <div class="org-node-name">{{ dept.get('name', '') }}</div>
+                                <div class="org-node-position">Department</div>
+                                <div class="org-node-details">{{ dept.get('worker_count', 0) }} workers</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Level 3: Workers -->
+                    {% if departments %}
+                    <div class="org-level level-workers">
+                        {% for dept in departments %}
+                        {% set dept_id = dept.get('id', loop.index) %}
+                        {% if dept.get('workers') %}
+                        <div class="org-workers-group" data-dept-id="{{ dept_id }}">
+                            {% for worker in dept.get('workers', []) %}
+                            <div class="org-node worker-node" 
+                                 data-dept-id="{{ dept_id }}" 
+                                 data-worker-id="{{ worker.get('id', '') }}"
+                                 id="worker-{{ dept_id }}-{{ loop.index }}"
+                                 data-worker-name="{{ worker.get('name', '') }} {{ worker.get('surname', '') }}"
+                                 data-worker-salary="{{ worker.get('salary', 0) }}"
+                                 data-worker-department="{{ dept.get('name', '') }}"
+                                 data-worker-years="{{ worker.get('years_in_company', 2) }}"
+                                 data-worker-salary-change="{{ worker.get('salary_change', 0) }}"
+                                 onclick="showWorkerModal(this); event.stopPropagation();">
+                                <div class="org-node-icon worker-icon">
+                                    <svg width="40" height="40" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <circle cx="30" cy="30" r="28" stroke="currentColor" stroke-width="2"/>
+                                        <circle cx="30" cy="22" r="8" fill="currentColor"/>
+                                        <path d="M15 45C15 38 21 33 30 33C39 33 45 38 45 45" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <div class="org-node-info">
+                                    <div class="org-node-name">{{ worker.get('name', '') }} {{ worker.get('surname', '') }}</div>
+                                    <div class="org-node-position">Employee</div>
+                                    <div class="org-node-details">${{ "%.0f"|format(worker.get('salary', 0)) }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="org-workers-group empty" data-dept-id="{{ dept_id }}"></div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <script>
+                // Organization Chart Layout and Drawing
+                function layoutOrgChart() {
+                    const container = document.querySelector('.org-chart-container');
+                    if (!container) return;
+                    
+                    // Position CEO at top center
+                    const ceoLevel = document.querySelector('.level-ceo');
+                    if (ceoLevel) {
+                        ceoLevel.style.display = 'flex';
+                        ceoLevel.style.justifyContent = 'center';
+                        ceoLevel.style.alignItems = 'center';
+                        ceoLevel.style.marginBottom = '60px';
+                    }
+                    
+                    // Position departments in a row
+                    const deptLevel = document.querySelector('.level-departments');
+                    if (deptLevel) {
+                        deptLevel.style.display = 'flex';
+                        deptLevel.style.justifyContent = 'center';
+                        deptLevel.style.alignItems = 'flex-start';
+                        deptLevel.style.gap = '40px';
+                        deptLevel.style.flexWrap = 'nowrap';
+                        deptLevel.style.marginBottom = '60px';
+                        deptLevel.style.overflowX = 'auto';
+                        deptLevel.style.width = '100%';
+                    }
+                    
+                    // Position workers under their departments
+                    const workersLevel = document.querySelector('.level-workers');
+                    if (workersLevel) {
+                        workersLevel.style.display = 'flex';
+                        workersLevel.style.justifyContent = 'center';
+                        workersLevel.style.alignItems = 'flex-start';
+                        workersLevel.style.gap = '40px';
+                        workersLevel.style.flexWrap = 'nowrap';
+                        workersLevel.style.overflowX = 'auto';
+                        workersLevel.style.width = '100%';
+                    }
+                    
+                    // Position each worker group under its department
+                    const workerGroups = document.querySelectorAll('.org-workers-group');
+                    workerGroups.forEach(group => {
+                        group.style.display = 'flex';
+                        group.style.flexDirection = 'column';
+                        group.style.alignItems = 'center';
+                        group.style.gap = '20px';
+                        group.style.minWidth = '140px';
+                        group.style.maxWidth = '160px';
+                        group.style.flexShrink = '0';
+                    });
+                }
+                
+                function drawOrgChartLines() {
+                    const svg = document.getElementById('orgChartLines');
+                    if (!svg) return;
+                    
+                    svg.innerHTML = '';
+                    
+                    const container = document.querySelector('.org-chart-container');
+                    if (!container) return;
+                    
+                    const containerRect = container.getBoundingClientRect();
+                    svg.setAttribute('width', containerRect.width);
+                    svg.setAttribute('height', containerRect.height);
+                    svg.style.position = 'absolute';
+                    svg.style.top = '0';
+                    svg.style.left = '0';
+                    svg.style.pointerEvents = 'none';
+                    svg.style.zIndex = '1';
+                    
+                    const ceoNode = document.getElementById('ceo-node');
+                    if (!ceoNode) return;
+                    
+                    const ceoRect = ceoNode.getBoundingClientRect();
+                    const ceoX = ceoRect.left + ceoRect.width / 2 - containerRect.left;
+                    const ceoY = ceoRect.top + ceoRect.height - containerRect.top;
+                    
+                    // Get all departments
+                    const deptNodes = document.querySelectorAll('.department-node');
+                    if (deptNodes.length === 0) return;
+                    
+                    // Calculate branch level between CEO and departments
+                    const deptPositions = [];
+                    deptNodes.forEach(dept => {
+                        const deptRect = dept.getBoundingClientRect();
+                        deptPositions.push({
+                            x: deptRect.left + deptRect.width / 2 - containerRect.left,
+                            y: deptRect.top - containerRect.top,
+                            id: dept.getAttribute('data-dept-id'),
+                            node: dept
+                        });
+                    });
+                    
+                    const branchY = Math.min(...deptPositions.map(d => d.y)) - 40;
+                    
+                    // Draw line from CEO to branch
+                    const ceoToBranch = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    ceoToBranch.setAttribute('x1', ceoX);
+                    ceoToBranch.setAttribute('y1', ceoY);
+                    ceoToBranch.setAttribute('x2', ceoX);
+                    ceoToBranch.setAttribute('y2', branchY);
+                    ceoToBranch.setAttribute('stroke', '#7C3AED');
+                    ceoToBranch.setAttribute('stroke-width', '2');
+                    ceoToBranch.setAttribute('opacity', '0.6');
+                    svg.appendChild(ceoToBranch);
+                    
+                    // Draw horizontal branch
+                    if (deptPositions.length > 0) {
+                        const sortedDepts = [...deptPositions].sort((a, b) => a.x - b.x);
+                        const branchStartX = sortedDepts[0].x;
+                        const branchEndX = sortedDepts[sortedDepts.length - 1].x;
+                        
+                        const horizontalBranch = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        horizontalBranch.setAttribute('x1', branchStartX);
+                        horizontalBranch.setAttribute('y1', branchY);
+                        horizontalBranch.setAttribute('x2', branchEndX);
+                        horizontalBranch.setAttribute('y2', branchY);
+                        horizontalBranch.setAttribute('stroke', '#7C3AED');
+                        horizontalBranch.setAttribute('stroke-width', '2');
+                        horizontalBranch.setAttribute('opacity', '0.6');
+                        svg.appendChild(horizontalBranch);
+                        
+                        // Connect CEO to branch if needed
+                        if (ceoX < branchStartX || ceoX > branchEndX) {
+                            const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            connector.setAttribute('x1', ceoX);
+                            connector.setAttribute('y1', branchY);
+                            connector.setAttribute('x2', ceoX < branchStartX ? branchStartX : branchEndX);
+                            connector.setAttribute('y2', branchY);
+                            connector.setAttribute('stroke', '#7C3AED');
+                            connector.setAttribute('stroke-width', '2');
+                            connector.setAttribute('opacity', '0.6');
+                            svg.appendChild(connector);
+                        }
+                    }
+                    
+                    // Draw lines from branch to each department
+                    deptPositions.forEach(dept => {
+                        const lineToDept = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        lineToDept.setAttribute('x1', dept.x);
+                        lineToDept.setAttribute('y1', branchY);
+                        lineToDept.setAttribute('x2', dept.x);
+                        lineToDept.setAttribute('y2', dept.y);
+                        lineToDept.setAttribute('stroke', '#7C3AED');
+                        lineToDept.setAttribute('stroke-width', '2');
+                        lineToDept.setAttribute('opacity', '0.6');
+                        svg.appendChild(lineToDept);
+                    });
+                    
+                    // Draw lines from departments to their workers
+                    deptPositions.forEach(dept => {
+                        const deptId = dept.id;
+                        const deptRect = dept.node.getBoundingClientRect();
+                        const deptX = deptRect.left + deptRect.width / 2 - containerRect.left;
+                        const deptY = deptRect.top + deptRect.height - containerRect.top;
+                        
+                        // Find workers for this department
+                        const workerGroup = document.querySelector(`.org-workers-group[data-dept-id="${deptId}"]`);
+                        if (!workerGroup) return;
+                        
+                        const workers = workerGroup.querySelectorAll('.worker-node');
+                        if (workers.length === 0) return;
+                        
+                        // Calculate worker positions
+                        const workerPositions = Array.from(workers).map(worker => {
+                            const workerRect = worker.getBoundingClientRect();
+                            return {
+                                x: workerRect.left + workerRect.width / 2 - containerRect.left,
+                                y: workerRect.top - containerRect.top,
+                                node: worker
+                            };
+                        });
+                        
+                        const minWorkerY = Math.min(...workerPositions.map(w => w.y));
+                        const workerBranchY = minWorkerY - 30;
+                        
+                        // Draw line from department to worker branch
+                        const deptToBranch = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        deptToBranch.setAttribute('x1', deptX);
+                        deptToBranch.setAttribute('y1', deptY);
+                        deptToBranch.setAttribute('x2', deptX);
+                        deptToBranch.setAttribute('y2', workerBranchY);
+                        deptToBranch.setAttribute('stroke', '#7C3AED');
+                        deptToBranch.setAttribute('stroke-width', '2');
+                        deptToBranch.setAttribute('opacity', '0.6');
+                        svg.appendChild(deptToBranch);
+                        
+                        // Draw horizontal branch for workers if more than one
+                        if (workerPositions.length > 1) {
+                            const sortedWorkers = [...workerPositions].sort((a, b) => a.x - b.x);
+                            const workerBranchStartX = sortedWorkers[0].x;
+                            const workerBranchEndX = sortedWorkers[sortedWorkers.length - 1].x;
+                            
+                            const workerBranch = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            workerBranch.setAttribute('x1', workerBranchStartX);
+                            workerBranch.setAttribute('y1', workerBranchY);
+                            workerBranch.setAttribute('x2', workerBranchEndX);
+                            workerBranch.setAttribute('y2', workerBranchY);
+                            workerBranch.setAttribute('stroke', '#7C3AED');
+                            workerBranch.setAttribute('stroke-width', '2');
+                            workerBranch.setAttribute('opacity', '0.6');
+                            svg.appendChild(workerBranch);
+                            
+                            // Connect department to branch if needed
+                            if (deptX < workerBranchStartX || deptX > workerBranchEndX) {
+                                const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                                connector.setAttribute('x1', deptX);
+                                connector.setAttribute('y1', workerBranchY);
+                                connector.setAttribute('x2', deptX < workerBranchStartX ? workerBranchStartX : workerBranchEndX);
+                                connector.setAttribute('y2', workerBranchY);
+                                connector.setAttribute('stroke', '#7C3AED');
+                                connector.setAttribute('stroke-width', '2');
+                                connector.setAttribute('opacity', '0.6');
+                                svg.appendChild(connector);
+                            }
+                        }
+                        
+                        // Draw lines from branch to each worker
+                        workerPositions.forEach(worker => {
+                            const lineToWorker = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            lineToWorker.setAttribute('x1', worker.x);
+                            lineToWorker.setAttribute('y1', workerBranchY);
+                            lineToWorker.setAttribute('x2', worker.x);
+                            lineToWorker.setAttribute('y2', worker.y);
+                            lineToWorker.setAttribute('stroke', '#7C3AED');
+                            lineToWorker.setAttribute('stroke-width', '2');
+                            lineToWorker.setAttribute('opacity', '0.6');
+                            svg.appendChild(lineToWorker);
+                        });
+                    });
+                }
+                
+                function initializeOrgChart() {
+                    layoutOrgChart();
+                    setTimeout(() => {
+                        drawOrgChartLines();
+                    }, 100);
+                }
+                
+                // Initialize on page load
+                window.addEventListener('load', initializeOrgChart);
+                window.addEventListener('resize', initializeOrgChart);
+                setTimeout(initializeOrgChart, 200);
+                
+                // Re-initialize when DOM changes
+                const observer = new MutationObserver(() => {
+                    initializeOrgChart();
+                });
+                
+                const chartContainer = document.querySelector('.org-chart-container');
+                if (chartContainer) {
+                    observer.observe(chartContainer, { childList: true, subtree: true });
+                }
+                
+                // Delete panel functions
+                function showDeletePanel(node, type, id) {
+                    const deletePanel = node.querySelector('.delete-panel');
+                    if (deletePanel) {
+                        // Position panel to the right of the node
+                        const nodeRect = node.getBoundingClientRect();
+                        const treeContainer = document.querySelector('.tree-container');
+                        if (!treeContainer) return;
+                        
+                        const containerRect = treeContainer.getBoundingClientRect();
+                        const panelX = nodeRect.right - containerRect.left + 15;
+                        const panelY = nodeRect.top - containerRect.top + (nodeRect.height / 2) - 20;
+                        
+                        deletePanel.style.position = 'absolute';
+                        deletePanel.style.left = panelX + 'px';
+                        deletePanel.style.top = panelY + 'px';
+                        deletePanel.style.display = 'block';
+                        
+                        // Add fade-in animation
+                        setTimeout(() => {
+                            deletePanel.classList.add('active');
+                        }, 10);
+                    }
+                }
+                
+                function hideDeletePanel(node) {
+                    const deletePanel = node.querySelector('.delete-panel');
+                    if (deletePanel && !deletePanel.matches(':hover')) {
+                        deletePanel.classList.remove('active');
+                        setTimeout(() => {
+                            if (!deletePanel.matches(':hover')) {
+                                deletePanel.style.display = 'none';
+                            }
+                        }, 200);
+                    }
+                }
+                
+                // Keep panel visible when hovering over it
+                document.addEventListener('mouseover', function(e) {
+                    if (e.target.closest('.delete-panel')) {
+                        const panel = e.target.closest('.delete-panel');
+                        panel.classList.add('active');
+                        panel.style.display = 'block';
+                    }
+                });
+                
+                // Delete department function
+                async function deleteDepartment(deptId) {
+                    if (!confirm('Are you sure you want to delete this department and all its workers?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/constructor/department/${deptId}/delete`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        
+                        if (response.ok || response.status === 303) {
+                            window.location.reload();
+                        } else {
+                            alert('Failed to delete department');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting department:', error);
+                        alert('Error deleting department');
+                    }
+                }
+                
+                // Delete worker function
+                async function deleteWorker(workerId) {
+                    if (!confirm('Are you sure you want to delete this worker?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/constructor/worker/${workerId}/delete`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        
+                        if (response.ok || response.status === 303) {
+                            window.location.reload();
+                        } else {
+                            alert('Failed to delete worker');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting worker:', error);
+                        alert('Error deleting worker');
+                    }
+                }
+                
+                // Worker modal functions
+                let currentWorkerId = null;
+                
+                function showWorkerModal(workerNode) {
+                    const modal = document.getElementById('workerModal');
+                    const backdrop = document.getElementById('workerModalBackdrop');
+                    
+                    if (!modal || !backdrop) return;
+                    
+                    // Get worker data
+                    const workerId = workerNode.getAttribute('data-worker-id');
+                    const name = workerNode.getAttribute('data-worker-name');
+                    const salary = parseFloat(workerNode.getAttribute('data-worker-salary'));
+                    const department = workerNode.getAttribute('data-worker-department');
+                    const years = workerNode.getAttribute('data-worker-years');
+                    const salaryChange = parseFloat(workerNode.getAttribute('data-worker-salary-change'));
+                    
+                    // Store current worker ID for deletion
+                    currentWorkerId = workerId;
+                    
+                    // Update modal content
+                    document.getElementById('modalWorkerName').textContent = name;
+                    document.getElementById('modalWorkerSalary').textContent = '$' + salary.toFixed(2);
+                    document.getElementById('modalWorkerDepartment').textContent = department;
+                    document.getElementById('modalWorkerYears').textContent = years + ' years';
+                    
+                    // Update salary change
+                    const salaryChangeEl = document.getElementById('modalSalaryChange');
+                    const salaryChangeArrow = document.getElementById('salaryChangeArrow');
+                    if (salaryChange > 0) {
+                        salaryChangeEl.textContent = '+' + salaryChange.toFixed(2) + '%';
+                        salaryChangeEl.className = 'salary-change positive';
+                        salaryChangeArrow.innerHTML = '↑';
+                        salaryChangeArrow.className = 'arrow up';
+                    } else if (salaryChange < 0) {
+                        salaryChangeEl.textContent = salaryChange.toFixed(2) + '%';
+                        salaryChangeEl.className = 'salary-change negative';
+                        salaryChangeArrow.innerHTML = '↓';
+                        salaryChangeArrow.className = 'arrow down';
+                    } else {
+                        salaryChangeEl.textContent = '0%';
+                        salaryChangeEl.className = 'salary-change neutral';
+                        salaryChangeArrow.innerHTML = '→';
+                        salaryChangeArrow.className = 'arrow neutral';
+                    }
+                    
+                    // Show delete button - always visible
+                    const deleteBtn = document.getElementById('modalDeleteWorkerBtn');
+                    if (deleteBtn) {
+                        deleteBtn.style.display = 'block';
+                        deleteBtn.style.visibility = 'visible';
+                        if (workerId) {
+                            deleteBtn.setAttribute('data-worker-id', workerId);
+                        }
+                    }
+                    
+                    // Show modal - CSS will handle centering via flexbox
+                    backdrop.classList.add('active');
+                    modal.classList.add('active');
+                    
+                    // Ensure backdrop can receive clicks
+                    backdrop.style.pointerEvents = 'auto';
+                    
+                    // Setup backdrop click handler
+                    setupBackdropClick();
+                }
+                
+                // Delete worker from modal
+                async function deleteWorkerFromModal() {
+                    // Get worker ID from currentWorkerId or from button attribute
+                    let workerId = currentWorkerId;
+                    const deleteBtn = document.getElementById('modalDeleteWorkerBtn');
+                    if (!workerId && deleteBtn) {
+                        workerId = deleteBtn.getAttribute('data-worker-id');
+                    }
+                    
+                    if (!workerId) {
+                        alert('Worker ID not found');
+                        return;
+                    }
+                    
+                    if (!confirm('Are you sure you want to delete this worker?')) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/constructor/worker/${workerId}/delete`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        });
+                        
+                        if (response.ok || response.status === 303) {
+                            hideWorkerModal();
+                            window.location.reload();
+                        } else {
+                            const errorText = await response.text();
+                            alert('Failed to delete worker: ' + errorText);
+                        }
+                    } catch (error) {
+                        console.error('Error deleting worker:', error);
+                        alert('Error deleting worker: ' + error.message);
+                    }
+                }
+                
+                function hideWorkerModal() {
+                    const modal = document.getElementById('workerModal');
+                    const backdrop = document.getElementById('workerModalBackdrop');
+                    
+                    if (!modal || !backdrop) return;
+                    
+                    backdrop.classList.remove('active');
+                    modal.classList.remove('active');
+                    
+                    setTimeout(() => {
+                        backdrop.style.display = 'none';
+                        modal.style.display = 'none';
+                    }, 300);
+                }
+                
+                // Setup event listeners when DOM is ready
+                document.addEventListener('DOMContentLoaded', function() {
+                    const modal = document.getElementById('workerModal');
+                    const backdrop = document.getElementById('workerModalBackdrop');
+                    
+                    if (modal && backdrop) {
+                        // Close when clicking on backdrop (blurred background)
+                        backdrop.addEventListener('click', function(e) {
+                            // Close if clicking on backdrop itself (not on modal or its children)
+                            if (e.target === backdrop || e.target === this) {
+                                hideWorkerModal();
+                            }
+                        });
+                        
+                        // Prevent modal from closing when clicking inside it
+                        modal.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                        });
+                    }
+                });
+                
+                // Setup backdrop click handler when modal is shown
+                function setupBackdropClick() {
+                    const backdrop = document.getElementById('workerModalBackdrop');
+                    if (backdrop) {
+                        // Use onclick for more reliable event handling
+                        backdrop.onclick = function(e) {
+                            if (e.target === backdrop) {
+                                hideWorkerModal();
+                            }
+                        };
+                    }
+                }
+                
+                // Toggle form sections
+                function toggleFormSection(sectionId) {
+                    const section = document.getElementById(sectionId);
+                    const toggle = event.currentTarget;
+                    const icon = toggle.querySelector('.toggle-icon');
+                    
+                    if (section.style.display === 'none' || !section.style.display) {
+                        section.style.display = 'block';
+                        icon.textContent = '▲';
+                        toggle.classList.add('active');
+                    } else {
+                        section.style.display = 'none';
+                        icon.textContent = '▼';
+                        toggle.classList.remove('active');
+                    }
+                }
+                
+                // Revenue section is always open - no toggle needed
+            </script>
+            
+            <!-- Worker Modal -->
+            <div class="worker-modal-backdrop" id="workerModalBackdrop">
+                <div class="worker-modal" id="workerModal">
+                <div class="worker-modal-content">
+                    <h3 class="modal-title">Employee Details</h3>
+                    <div class="modal-info">
+                        <div class="modal-info-row">
+                            <span class="modal-label">Name:</span>
+                            <span class="modal-value" id="modalWorkerName">-</span>
+                        </div>
+                        <div class="modal-info-row">
+                            <span class="modal-label">Department:</span>
+                            <span class="modal-value" id="modalWorkerDepartment">-</span>
+                        </div>
+                        <div class="modal-info-row">
+                            <span class="modal-label">Current Salary:</span>
+                            <span class="modal-value salary-value" id="modalWorkerSalary">-</span>
+                        </div>
+                        <div class="modal-info-row">
+                            <span class="modal-label">Years in Company:</span>
+                            <span class="modal-value" id="modalWorkerYears">-</span>
+                        </div>
+                        <div class="modal-info-row">
+                            <span class="modal-label">Salary Change:</span>
+                            <span class="modal-value salary-change-container">
+                                <span class="arrow" id="salaryChangeArrow">→</span>
+                                <span class="salary-change" id="modalSalaryChange">0%</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-danger" id="modalDeleteWorkerBtn" onclick="deleteWorkerFromModal(); event.stopPropagation();">Delete Worker</button>
+                        <button class="btn btn-secondary" id="modalCloseBtn" onclick="hideWorkerModal(); event.stopPropagation();">Close</button>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- Right Panel: Revenue -->
+            <div class="right-panel">
+                <div class="form-section">
+                    <div class="form-section-content" id="revenue-section" style="display: block !important;">
+                        <h3 class="revenue-panel-title">Add Revenue</h3>
+                        <form method="POST" action="/constructor/revenue" class="form-card">
+                            <div class="form-group">
+                                <label for="revenue_month">Month:</label>
+                                <input type="month" id="revenue_month" name="month" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="revenue_amount">Revenue (USDC):</label>
+                                <input type="number" step="0.01" min="0" id="revenue_amount" name="amount" placeholder="50000.00" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">Add Revenue</button>
+                        </form>
+                        
+                        {% if revenues %}
+                        <div class="revenue-list" style="margin-top: 1.5rem;">
+                            <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-primary);">Monthly Revenues</h3>
+                            <ul>
+                                {% for revenue in revenues %}
+                                <li>{{ revenue.get('month', '') }}: ${{ "%.2f"|format(revenue.get('amount', 0)) }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
