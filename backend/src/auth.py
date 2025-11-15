@@ -11,12 +11,18 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 import os
+import warnings
+
+# Suppress bcrypt version warning
+warnings.filterwarnings("ignore", category=UserWarning, module="passlib")
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Initialize password context with bcrypt
+# Using bcrypt with rounds=12 for better security
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 

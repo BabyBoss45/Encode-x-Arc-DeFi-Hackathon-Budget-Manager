@@ -196,76 +196,98 @@
         ];
         
         const ctx = document.getElementById('departmentChart');
-        if (ctx && deptData.length > 0) {
-            const chart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: deptData.map(d => d.name),
-                    datasets: [{
-                        data: deptData.map(d => d.total),
-                        backgroundColor: chartColors.slice(0, deptData.length),
-                        borderColor: '#ffffff',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '60%',
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            enabled: true,
-                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                            titleColor: '#111827',
-                            bodyColor: '#6B7280',
-                            borderColor: 'rgba(59, 130, 246, 0.3)',
-                            borderWidth: 1,
-                            padding: 12,
-                            titleFont: {
-                                size: 14,
-                                weight: 'bold',
-                                family: "'Inter', sans-serif"
+        const legendContainer = document.getElementById('departmentLegend');
+        
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded!');
+            if (legendContainer) {
+                legendContainer.innerHTML = '<div style="color: #ef4444; padding: 1rem;">Error: Chart.js library not loaded. Please check your internet connection.</div>';
+            }
+        } else if (ctx) {
+            if (deptData.length > 0 && totalCost > 0) {
+                // Create chart with data
+                const chart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: deptData.map(d => d.name),
+                        datasets: [{
+                            data: deptData.map(d => d.total),
+                            backgroundColor: chartColors.slice(0, deptData.length),
+                            borderColor: '#ffffff',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '60%',
+                        plugins: {
+                            legend: {
+                                display: false
                             },
-                            bodyFont: {
-                                size: 12,
-                                family: "'Inter', sans-serif"
-                            },
-                            callbacks: {
-                                label: function(context) {
-                                    const dept = deptData[context.dataIndex];
-                                    const percentage = ((dept.total / totalCost) * 100).toFixed(1);
-                                    return dept.name + ': $' + dept.total.toFixed(2) + ' (' + percentage + '%)';
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                titleColor: '#111827',
+                                bodyColor: '#6B7280',
+                                borderColor: 'rgba(59, 130, 246, 0.3)',
+                                borderWidth: 1,
+                                padding: 12,
+                                titleFont: {
+                                    size: 14,
+                                    weight: 'bold',
+                                    family: "'Inter', sans-serif"
+                                },
+                                bodyFont: {
+                                    size: 12,
+                                    family: "'Inter', sans-serif"
+                                },
+                                callbacks: {
+                                    label: function(context) {
+                                        const dept = deptData[context.dataIndex];
+                                        const percentage = ((dept.total / totalCost) * 100).toFixed(1);
+                                        return dept.name + ': $' + dept.total.toFixed(2) + ' (' + percentage + '%)';
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
-            
-            // Generate custom legend
-            const legendContainer = document.getElementById('departmentLegend');
-            if (legendContainer) {
-                legendContainer.innerHTML = '';
-                deptData.forEach((dept, index) => {
-                    const percentage = ((dept.total / totalCost) * 100).toFixed(1);
-                    const legendItem = document.createElement('div');
-                    legendItem.className = 'legend-item';
-                    legendItem.innerHTML = `
-                        <div class="legend-color" style="background-color: ${chartColors[index]}"></div>
-                        <div class="legend-content">
-                            <div class="legend-name">${dept.name}</div>
-                            <div class="legend-details">
-                                <span class="legend-amount">$${dept.total.toFixed(2)}</span>
-                                <span class="legend-percentage">${percentage}%</span>
-                            </div>
-                        </div>
-                    `;
-                    legendContainer.appendChild(legendItem);
                 });
+                
+                // Generate custom legend
+                if (legendContainer) {
+                    legendContainer.innerHTML = '';
+                    deptData.forEach((dept, index) => {
+                        const percentage = ((dept.total / totalCost) * 100).toFixed(1);
+                        const legendItem = document.createElement('div');
+                        legendItem.className = 'legend-item';
+                        legendItem.innerHTML = `
+                            <div class="legend-color" style="background-color: ${chartColors[index]}"></div>
+                            <div class="legend-content">
+                                <div class="legend-name">${dept.name}</div>
+                                <div class="legend-details">
+                                    <span class="legend-amount">$${dept.total.toFixed(2)}</span>
+                                    <span class="legend-percentage">${percentage}%</span>
+                                </div>
+                            </div>
+                        `;
+                        legendContainer.appendChild(legendItem);
+                    });
+                }
+            } else {
+                // No data - show message
+                console.log('No department data available for chart');
+                if (legendContainer) {
+                    legendContainer.innerHTML = '<div style="color: #64748b; padding: 1rem; text-align: center;">No departments found. Please add departments and workers in the Constructor page.</div>';
+                }
+                // Draw empty chart or hide canvas
+                if (ctx) {
+                    ctx.style.display = 'none';
+                }
             }
+        } else {
+            console.error('Canvas element #departmentChart not found!');
         }
 
         // Prepare expenses data for chart (will be synced with modal data later)
@@ -341,11 +363,16 @@
         }
         
         if (expensesCtx) {
-            // Use global expensesDataForChart if available, otherwise use chartExpensesData
-            const dataToUse = window.expensesDataForChart || chartExpensesData;
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded for expenses chart!');
+                expensesCtx.parentElement.innerHTML = '<div style="color: #ef4444; padding: 2rem; text-align: center;">Error: Chart.js library not loaded. Please check your internet connection.</div>';
+            } else {
+                // Use global expensesDataForChart if available, otherwise use chartExpensesData
+                const dataToUse = window.expensesDataForChart || chartExpensesData;
 
-            // Create chart first with empty data
-            expensesChart = new Chart(expensesCtx, {
+                // Create chart first with empty data
+                expensesChart = new Chart(expensesCtx, {
                 type: 'line',
                 data: {
                     labels: ['No data'],
@@ -423,13 +450,13 @@
                 }
             });
             
-            // Initialize chart with current data after chart is created
-            if (typeof window.updateExpensesChart === 'function') {
-                window.updateExpensesChart(dataToUse);
-            }
+                // Initialize chart with current data after chart is created
+                if (typeof window.updateExpensesChart === 'function') {
+                    window.updateExpensesChart(dataToUse);
+                }
 
-            // Date picker functionality
-            document.getElementById('updateChart').addEventListener('click', function() {
+                // Date picker functionality
+                document.getElementById('updateChart').addEventListener('click', function() {
                 const startMonth = document.getElementById('startMonth').value;
                 const endMonth = document.getElementById('endMonth').value;
                 
@@ -442,20 +469,21 @@
                 } else {
                     alert('Please select both start and end months');
                 }
-            });
+                });
 
-            // Set default months (last 6 months)
-            const today = new Date();
-            const sixMonthsAgo = new Date(today);
-            sixMonthsAgo.setMonth(today.getMonth() - 6);
-            
-            const formatMonthInput = (date) => {
-                return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            };
-            
-                    document.getElementById('endMonth').value = formatMonthInput(today);
-                    document.getElementById('startMonth').value = formatMonthInput(sixMonthsAgo);
-                }
+                // Set default months (last 6 months)
+                const today = new Date();
+                const sixMonthsAgo = new Date(today);
+                sixMonthsAgo.setMonth(today.getMonth() - 6);
+                
+                const formatMonthInput = (date) => {
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                };
+                
+                document.getElementById('endMonth').value = formatMonthInput(today);
+                document.getElementById('startMonth').value = formatMonthInput(sixMonthsAgo);
+            }
+        }
                 
                 // Align bottom borders: pie chart card with Master Wallet card
                 function alignBottomBorders() {

@@ -6,10 +6,7 @@ from fastapi import FastAPI, Request, Form, HTTPException, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-try:
-    from .api_client import APIClient
-except ImportError:
-    from api_client import APIClient
+from api_client import APIClient
 import os
 import json
 
@@ -213,24 +210,55 @@ async def constructor_page(request: Request):
             set_api_token(token)
             # Initialize payroll_transactions
             payroll_transactions = []
-            # Get data from API
+            # Get data from API - optimized with parallel requests
             try:
-                company = api_client.get_company()
-                departments = api_client.get_departments()
-                workers = api_client.get_workers()
-                spendings = api_client.get_spendings()
-                revenues = api_client.get_revenues()
-                try:
-                    payroll_transactions = api_client.get_payroll_transactions()
-                except:
-                    payroll_transactions = []
+                import concurrent.futures
+                
+                # Use ThreadPoolExecutor for parallel requests
+                with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+                    future_company = executor.submit(api_client.get_company)
+                    future_departments = executor.submit(api_client.get_departments)
+                    future_workers = executor.submit(api_client.get_workers)
+                    future_spendings = executor.submit(api_client.get_spendings)
+                    future_revenues = executor.submit(api_client.get_revenues)
+                    
+                    def get_payroll_safe():
+                        try:
+                            return api_client.get_payroll_transactions()
+                        except:
+                            return []
+                    future_payroll = executor.submit(get_payroll_safe)
+                    
+                    # Wait for all requests to complete
+                    company = future_company.result()
+                    departments = future_departments.result()
+                    workers = future_workers.result()
+                    spendings = future_spendings.result()
+                    revenues = future_revenues.result()
+                    payroll_transactions = future_payroll.result()
                 
                 # Transform API data to template format
                 import random
                 from datetime import datetime, timedelta
+                # Optimize with dictionary lookup for O(1) access
+                workers_by_dept = {}
+                for worker in workers:
+                    dept_id = worker.get("department_id")
+                    if dept_id not in workers_by_dept:
+                        workers_by_dept[dept_id] = []
+                    workers_by_dept[dept_id].append(worker)
+                
+                spendings_by_dept = {}
+                for spending in spendings:
+                    dept_id = spending.get("department_id")
+                    if dept_id not in spendings_by_dept:
+                        spendings_by_dept[dept_id] = []
+                    spendings_by_dept[dept_id].append(spending)
+                
                 departments_list = []
                 for dept in departments:
-                    dept_workers = [w for w in workers if w.get("department_id") == dept.get("id")]
+                    dept_id = dept.get("id")
+                    dept_workers = workers_by_dept.get(dept_id, [])
                     # Add additional worker info for modal
                     for worker in dept_workers:
                         # Add years in company (default: 1-5 years, or from created_at if available)
@@ -248,7 +276,7 @@ async def constructor_page(request: Request):
                         if "salary_change" not in worker:
                             worker["salary_change"] = round(random.uniform(-10, 15), 1)
                     
-                    dept_spendings = [s for s in spendings if s.get("department_id") == dept.get("id")]
+                    dept_spendings = spendings_by_dept.get(dept_id, [])
                     
                     departments_list.append({
                         "id": dept.get("id"),
@@ -663,24 +691,63 @@ async def dashboard(request: Request):
     try:
         if use_backend:
             set_api_token(token)
-            # Get stats from API
+            # Get stats from API - optimized: make requests in parallel where possible
             try:
-                stats = api_client.get_dashboard_stats()
-                departments = api_client.get_departments()
-                workers = api_client.get_workers()
-                spendings = api_client.get_spendings()
-                revenues = api_client.get_revenues()
-                try:
-                    payroll_transactions = api_client.get_payroll_transactions()
-                except:
-                    payroll_transactions = []
+                import concurrent.futures
                 
-                # Transform for template
+                # Use ThreadPoolExecutor for parallel requests (much faster than sequential)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+                    # Submit all requests in parallel
+                    future_stats = executor.submit(api_client.get_dashboard_stats)
+                    future_departments = executor.submit(api_client.get_departments)
+                    future_workers = executor.submit(api_client.get_workers)
+                    future_spendings = executor.submit(api_client.get_spendings)
+                    future_revenues = executor.submit(api_client.get_revenues)
+                    future_company = executor.submit(api_client.get_company)
+                    
+                    # Payroll transactions - optional, don't fail if endpoint doesn't exist
+                    def get_payroll_safe():
+                        try:
+                            return api_client.get_payroll_transactions()
+                        except:
+                            return []
+                    future_payroll = executor.submit(get_payroll_safe)
+                    
+                    # Wait for all requests to complete (they run in parallel)
+                    stats = future_stats.result()
+                    departments = future_departments.result()
+                    workers = future_workers.result()
+                    spendings = future_spendings.result()
+                    revenues = future_revenues.result()
+                    company = future_company.result()
+                    payroll_transactions = future_payroll.result()
+                
+                # Transform for template - optimized with dictionaries
+                # Create lookup dictionaries for O(1) access instead of O(n) loops
+                workers_by_dept = {}
+                for worker in workers:
+                    if worker.get("is_active", True):
+                        dept_id = worker.get("department_id")
+                        if dept_id not in workers_by_dept:
+                            workers_by_dept[dept_id] = []
+                        workers_by_dept[dept_id].append(worker)
+                
+                spendings_by_dept = {}
+                for spending in spendings:
+                    dept_id = spending.get("department_id")
+                    if dept_id not in spendings_by_dept:
+                        spendings_by_dept[dept_id] = []
+                    spendings_by_dept[dept_id].append(spending)
+                
+                # Create department lookup for fast access
+                dept_lookup = {dept.get("id"): dept for dept in departments}
+                
                 dept_stats = []
                 for dept in departments:
-                    dept_workers = [w for w in workers if w.get("department_id") == dept.get("id") and w.get("is_active", True)]
+                    dept_id = dept.get("id")
+                    dept_workers = workers_by_dept.get(dept_id, [])
                     dept_payroll = sum(w.get("salary", 0) for w in dept_workers)
-                    dept_spendings_list = [s for s in spendings if s.get("department_id") == dept.get("id")]
+                    dept_spendings_list = spendings_by_dept.get(dept_id, [])
                     dept_spendings_amount = sum(s.get("amount", 0) for s in dept_spendings_list)
                     
                     dept_stats.append({
@@ -692,7 +759,7 @@ async def dashboard(request: Request):
                         "workers": dept_workers
                     })
                 
-                company = api_client.get_company()
+                # Company data already loaded above
                 ceo_data = {
                     "master_wallet": company.get("master_wallet_address", "")
                 } if company.get("master_wallet_address") else None
@@ -715,13 +782,13 @@ async def dashboard(request: Request):
                             if worker_id not in worker_payroll_dates or transaction_date > worker_payroll_dates[worker_id]:
                                 worker_payroll_dates[worker_id] = transaction_date
                 
+                # Create department lookup for O(1) access
+                dept_lookup = {dept.get("id"): dept.get("name", "Unknown") for dept in departments}
+                
                 for worker in workers:
                     if worker.get("is_active", True):
-                        dept_name = "Unknown"
-                        for dept in departments:
-                            if dept.get("id") == worker.get("department_id"):
-                                dept_name = dept.get("name", "Unknown")
-                                break
+                        dept_id = worker.get("department_id")
+                        dept_name = dept_lookup.get(dept_id, "Unknown")
                         
                         # Get payroll date from transaction, or use worker created_at, or current date
                         from datetime import datetime
