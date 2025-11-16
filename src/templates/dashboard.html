@@ -73,6 +73,16 @@
                             <div class="stat-label">Profit</div>
                             <div class="stat-value {% if profit >= 0 %}positive{% else %}negative{% endif %}">${{ "%.2f"|format(profit) }}</div>
                         </div>
+                        <div class="stat-card" data-icon="wallet">
+                            <div class="stat-label">Wallet ID Balance (USDC)</div>
+                            <div class="stat-value {% if wallet_balance is not none and wallet_balance > 0 %}positive{% else %}negative{% endif %}">
+                                {% if wallet_balance is not none %}
+                                    ${{ "%.2f"|format(wallet_balance) }}
+                                {% else %}
+                                    $0.00
+                                {% endif %}
+                            </div>
+                        </div>
                         {% if ceo_data %}
                         <div class="stat-card" data-icon="wallet">
                             <div class="stat-label">Master Wallet</div>

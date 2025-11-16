@@ -24,7 +24,10 @@ class Company(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    master_wallet_address = Column(String, nullable=True)
+    master_wallet_address = Column(String, nullable=True)  # Blockchain address for display
+    circle_wallet_id = Column(String, nullable=True)  # Circle wallet ID (UUID) for API calls
+    circle_wallet_set_id = Column(String, nullable=True)  # Circle wallet set ID
+    entity_secret_encrypted = Column(String, nullable=True)  # Encrypted entity secret (base64)
     payroll_date = Column(Date, nullable=True)  # Date for payroll payment
     payroll_time = Column(String, nullable=True)  # Time in 24-hour format (HH:MM)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -103,8 +106,9 @@ class PayrollTransaction(Base):
     amount = Column(Float, nullable=False)
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
-    status = Column(String, default="pending", nullable=False)  # pending, completed, failed
-    transaction_hash = Column(String, nullable=True)
+    status = Column(String, default="pending", nullable=False)  # pending, completed, failed, INITIATED, QUEUED, SENT, CONFIRMED, COMPLETE
+    transaction_hash = Column(String, nullable=True)  # Circle transaction ID or blockchain tx hash
+    circle_transaction_id = Column(String, nullable=True)  # Circle transaction ID (UUID)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     company = relationship("Company", back_populates="payroll_transactions")

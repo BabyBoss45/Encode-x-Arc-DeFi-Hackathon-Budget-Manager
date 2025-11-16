@@ -33,12 +33,28 @@
                         <span class="toggle-icon">▼</span>
                     </button>
                     <div class="form-section-content" id="ceo-section" style="display: none;">
-                        <form method="POST" action="/constructor/ceo" class="form-card">
+                        <form method="POST" action="/constructor/ceo" class="form-card" onsubmit="return validateCEOForm(event)">
                             <div class="form-group">
-                                <label for="master_wallet">Master Wallet Address:</label>
+                                <label for="circle_wallet_id">Circle Wallet ID (UUID):</label>
+                                <input type="text" id="circle_wallet_id" name="circle_wallet_id" 
+                                       placeholder="a35494a6-3d52-5eeb-8b42-b3bb5ec9a4d7" required 
+                                       value="{{ ceo_data.get('circle_wallet_id', '') if ceo_data else '' }}"
+                                       pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+                                       title="Circle Wallet ID must be a valid UUID format (e.g., a35494a6-3d52-5eeb-8b42-b3bb5ec9a4d7)">
+                                <small style="color: #888; font-size: 0.85rem; display: block; margin-top: 0.25rem;">
+                                    Format: UUID (e.g., a35494a6-3d52-5eeb-8b42-b3bb5ec9a4d7)
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label for="master_wallet">Master Wallet Address (Optional - for display):</label>
                                 <input type="text" id="master_wallet" name="master_wallet" 
-                                       placeholder="0x..." required 
-                                       value="{{ ceo_data.get('master_wallet', '') if ceo_data else '' }}">
+                                       placeholder="0x..." 
+                                       value="{{ ceo_data.get('master_wallet', '') if ceo_data else '' }}"
+                                       pattern="0x[a-fA-F0-9]{40}"
+                                       title="Optional blockchain address for display">
+                                <small style="color: #888; font-size: 0.85rem; display: block; margin-top: 0.25rem;">
+                                    Optional: Blockchain address for display only
+                                </small>
                             </div>
                             <div class="form-group">
                                 <label for="payroll_frequency">Payroll Frequency:</label>
@@ -186,7 +202,7 @@
                             <div class="org-node-info">
                                 <div class="org-node-name">CEO</div>
                                 <div class="org-node-position">Chief Executive Officer</div>
-                                <div class="org-node-details">{{ ceo_data.get('master_wallet', '')[:10] }}...</div>
+                                <div class="org-node-details">{{ ceo_data.get('circle_wallet_id', '')[:8] }}...{{ ceo_data.get('circle_wallet_id', '')[-8:] if ceo_data.get('circle_wallet_id') else '' }}</div>
                             </div>
                         </div>
                         {% else %}
@@ -867,6 +883,83 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Validate CEO form before submission
+        function validateCEOForm(event) {
+            const walletIdInput = document.getElementById('circle_wallet_id');
+            const walletIdValue = walletIdInput.value.trim();
+            
+            // Check if Circle Wallet ID is empty
+            if (!walletIdValue) {
+                alert('Please enter a Circle Wallet ID');
+                walletIdInput.focus();
+                return false;
+            }
+            
+            // Validate UUID format
+            const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidPattern.test(walletIdValue)) {
+                alert('Invalid Circle Wallet ID format. Must be a valid UUID (e.g., a35494a6-3d52-5eeb-8b42-b3bb5ec9a4d7)');
+                walletIdInput.focus();
+                return false;
+            }
+            
+            // Optional: Validate master wallet address if provided
+            const masterWalletInput = document.getElementById('master_wallet');
+            const masterWalletValue = masterWalletInput.value.trim();
+            
+            if (masterWalletValue) {
+                let normalizedWallet = masterWalletValue;
+                
+                // If doesn't start with 0x, check if it's 40 chars and add 0x
+                if (!normalizedWallet.startsWith('0x')) {
+                    if (normalizedWallet.length === 40) {
+                        normalizedWallet = '0x' + normalizedWallet;
+                    } else {
+                        alert('Invalid master wallet address format. Must be 42 characters with 0x prefix or 40 characters without.');
+                        masterWalletInput.focus();
+                        return false;
+                    }
+                }
+                
+                // Check length
+                if (normalizedWallet.length !== 42) {
+                    alert('Invalid master wallet address length. Must be 42 characters (0x + 40 hex chars).');
+                    masterWalletInput.focus();
+                    return false;
+                }
+                
+                // Check hex format
+                const hexPattern = /^0x[a-fA-F0-9]{40}$/;
+                if (!hexPattern.test(normalizedWallet)) {
+                    alert('Invalid master wallet address format. Must contain only hexadecimal characters after 0x.');
+                    masterWalletInput.focus();
+                    return false;
+                }
+                
+                // Update the input value with normalized address
+                masterWalletInput.value = normalizedWallet;
+            }
+            
+            return true;
+        }
+        
+        // Toggle form sections
+        function toggleFormSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const toggle = event.currentTarget;
+            const icon = toggle.querySelector('.toggle-icon');
+            
+            if (section.style.display === 'none' || !section.style.display) {
+                section.style.display = 'block';
+                icon.textContent = '▲';
+            } else {
+                section.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+    </script>
 </body>
 </html>
 

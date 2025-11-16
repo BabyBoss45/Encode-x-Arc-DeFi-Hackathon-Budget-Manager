@@ -9,6 +9,7 @@ from ..models import AdditionalSpending, Company, Department
 from ..schemas import SpendingCreate, SpendingResponse
 from pydantic import BaseModel
 from ..auth import get_current_user
+from ..cache import clear_cache
 
 router = APIRouter(prefix="/api/spendings", tags=["spendings"])
 
@@ -70,6 +71,10 @@ async def create_spending(
     db.add(spending)
     db.commit()
     db.refresh(spending)
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return spending
 
 
@@ -94,6 +99,10 @@ async def delete_spending(
     
     db.delete(spending)
     db.commit()
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
     return {"message": "Spending deleted"}
 
 
