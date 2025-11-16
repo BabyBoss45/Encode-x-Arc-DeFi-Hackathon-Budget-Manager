@@ -1,6 +1,6 @@
 """
-Python скрипт для очистки базы данных
-Использует SQLAlchemy для безопасной очистки всех таблиц
+Python script for clearing the database
+Uses SQLAlchemy for safe clearing of all tables
 """
 import sys
 import os
@@ -20,7 +20,7 @@ from src.models import (
 load_dotenv(Path(__file__).parent / ".env")
 
 def clear_database():
-    """Очистить все данные из базы данных"""
+    """Clear all data from the database"""
     db = SessionLocal()
     
     try:
@@ -28,7 +28,7 @@ def clear_database():
         print("CLEARING DATABASE")
         print("=" * 80)
         
-        # Подсчет записей до очистки
+        # Count records before clearing
         print("\nRecords before clearing:")
         print(f"  Users: {db.query(User).count()}")
         print(f"  Companies: {db.query(Company).count()}")
@@ -41,7 +41,7 @@ def clear_database():
         
         print("\nClearing tables...")
         
-        # Удаляем в правильном порядке (сначала дочерние таблицы)
+        # Delete in correct order (child tables first)
         db.query(PayrollTransaction).delete()
         print("  [OK] Payroll transactions cleared")
         
@@ -66,10 +66,10 @@ def clear_database():
         db.query(User).delete()
         print("  [OK] Users cleared")
         
-        # Сохраняем изменения
+        # Save changes
         db.commit()
         
-        # Подсчет записей после очистки
+        # Count records after clearing
         print("\nRecords after clearing:")
         print(f"  Users: {db.query(User).count()}")
         print(f"  Companies: {db.query(Company).count()}")
@@ -98,7 +98,7 @@ def clear_database():
 if __name__ == "__main__":
     import sys
     
-    # Подтверждение
+    # Confirmation
     print("WARNING: This will delete ALL data from the database!")
     response = input("Are you sure? Type 'yes' to continue: ")
     

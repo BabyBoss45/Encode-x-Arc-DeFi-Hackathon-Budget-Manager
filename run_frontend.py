@@ -1,41 +1,41 @@
 #!/usr/bin/env python3
 """
-Простой скрипт для запуска фронтенда
-Просто запустите этот файл: python run_frontend.py
+Simple script to run the frontend
+Just run this file: python run_frontend.py
 """
 import sys
 import os
 import subprocess
 
-# Переходим в папку src
+# Change to src directory
 os.chdir(os.path.join(os.path.dirname(__file__), 'src'))
 
-# Проверяем зависимости
+# Check dependencies
 try:
     import fastapi
     import uvicorn
     import jinja2
 except ImportError:
-    print("❌ Не установлены зависимости!")
-    print("\n📦 Установите их командой:")
+    print("❌ Dependencies not installed!")
+    print("\n📦 Install them with:")
     print("   pip3 install fastapi uvicorn jinja2 python-multipart")
-    print("\nИли:")
+    print("\nOr:")
     print("   python3 -m pip install fastapi uvicorn jinja2 python-multipart")
-    print("\nИли:")
+    print("\nOr:")
     print("   pip3 install -r requirements_frontend.txt")
     sys.exit(1)
 
-# Запускаем фронтенд
-print("🚀 Запуск BossBoard Frontend...")
-print("📝 Откройте в браузере: http://localhost:8001/login")
-print("⏹️  Для остановки нажмите Ctrl+C\n")
+# Run frontend
+print("🚀 Starting BossBoard Frontend...")
+print("📝 Open in browser: http://localhost:8001/login")
+print("⏹️  Press Ctrl+C to stop\n")
 
 try:
     import uvicorn
     uvicorn.run("frontend:app", host="0.0.0.0", port=8001, reload=True)
 except KeyboardInterrupt:
-    print("\n👋 Остановка сервера...")
+    print("\n👋 Stopping server...")
 except Exception as e:
-    print(f"\n❌ Ошибка: {e}")
+    print(f"\n❌ Error: {e}")
     sys.exit(1)
 

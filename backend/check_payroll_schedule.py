@@ -1,5 +1,5 @@
 """
-Проверка настроек автоматической отправки зарплаты
+Check automatic payroll settings
 """
 import sys
 import os
@@ -17,7 +17,7 @@ from src.models import Company, Department, Worker
 load_dotenv(Path(__file__).parent / ".env")
 
 def check_schedule():
-    """Проверить настройки автоматической отправки"""
+    """Check automatic payroll settings"""
     db = SessionLocal()
     
     try:

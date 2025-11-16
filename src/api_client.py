@@ -215,6 +215,20 @@ class APIClient:
         )
         response.raise_for_status()
         return response.json()
+    
+    def get_circle_transactions(self) -> List[Dict]:
+        """Get Circle API transactions"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/dashboard/transactions",
+                headers=self._get_headers()
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            # Return empty list if endpoint fails
+            print(f"Warning: Could not fetch Circle transactions: {e}")
+            return []
 
 
 # Global API client instance

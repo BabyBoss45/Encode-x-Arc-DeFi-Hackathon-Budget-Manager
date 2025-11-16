@@ -1,5 +1,5 @@
 """
-Скрипт для добавления тестовых данных для автоматической отправки зарплаты
+Script for adding test data for automatic payroll
 """
 import sys
 import os
@@ -24,7 +24,7 @@ WORKER_WALLET_ADDRESS = "0x7cec508e78d5d18ea5c14d846a05bab3a017d5eb"
 WORKER_SALARY = 10.0  # USDC
 
 def add_test_data():
-    """Добавить тестовые данные в БД"""
+    """Add test data to database"""
     db = SessionLocal()
     
     try:

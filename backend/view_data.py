@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Скрипт для просмотра данных в PostgreSQL через Python
+Script for viewing data in PostgreSQL via Python
 """
 import psycopg2
 import os
@@ -11,7 +11,7 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL or not DATABASE_URL.startswith("postgresql"):
-    print("❌ DATABASE_URL не настроен для PostgreSQL!")
+    print("❌ DATABASE_URL is not configured for PostgreSQL!")
     exit(1)
 
 try:
@@ -19,11 +19,11 @@ try:
     cursor = conn.cursor()
     
     print("=" * 80)
-    print("ПРОСМОТР ДАННЫХ В БАЗЕ ДАННЫХ")
+    print("VIEWING DATABASE DATA")
     print("=" * 80)
     
-    # 1. Пользователи
-    print("\n[1] ПОЛЬЗОВАТЕЛИ:")
+    # 1. Users
+    print("\n[1] USERS:")
     cursor.execute("SELECT id, email, company_name, created_at FROM users ORDER BY created_at DESC")
     users = cursor.fetchall()
     if users:
@@ -32,10 +32,10 @@ try:
         for u in users:
             print(f"  {u[0]:<5} {u[1]:<30} {u[2]:<25} {str(u[3]):<20}")
     else:
-        print("  Нет пользователей")
+        print("  No users")
     
-    # 2. Компании
-    print("\n[2] КОМПАНИИ:")
+    # 2. Companies
+    print("\n[2] COMPANIES:")
     cursor.execute("""
         SELECT c.id, u.email, u.company_name, c.master_wallet_address, c.payroll_date, c.payroll_time
         FROM companies c
@@ -50,10 +50,10 @@ try:
             wallet = str(c[3])[:42] + "..." if c[3] and len(str(c[3])) > 42 else (c[3] or "N/A")
             print(f"  {c[0]:<5} {c[1]:<30} {c[2]:<20} {wallet:<45} {str(c[4] or 'N/A'):<15}")
     else:
-        print("  Нет компаний")
+        print("  No companies")
     
-    # 3. Департаменты
-    print("\n[3] ДЕПАРТАМЕНТЫ:")
+    # 3. Departments
+    print("\n[3] DEPARTMENTS:")
     cursor.execute("""
         SELECT d.id, u.company_name, d.name, d.created_at
         FROM departments d
@@ -68,10 +68,10 @@ try:
         for d in departments:
             print(f"  {d[0]:<5} {d[1]:<25} {d[2]:<25} {str(d[3]):<20}")
     else:
-        print("  Нет департаментов")
+        print("  No departments")
     
-    # 4. Работники
-    print("\n[4] РАБОТНИКИ:")
+    # 4. Workers
+    print("\n[4] WORKERS:")
     cursor.execute("""
         SELECT w.id, d.name as dept_name, w.name, w.surname, w.salary, w.wallet_address, w.is_active
         FROM workers w
@@ -85,10 +85,10 @@ try:
         for w in workers:
             print(f"  {w[0]:<5} {w[1]:<20} {w[2]:<15} {w[3]:<15} {w[4]:<12} {'Yes' if w[6] else 'No':<8}")
     else:
-        print("  Нет работников")
+        print("  No workers")
     
-    # 5. Расходы
-    print("\n[5] РАСХОДЫ:")
+    # 5. Spendings
+    print("\n[5] SPENDINGS:")
     cursor.execute("""
         SELECT s.id, u.company_name, COALESCE(d.name, 'CEO') as dept, s.name, s.amount, s.created_at
         FROM additional_spendings s
@@ -104,10 +104,10 @@ try:
         for s in spendings:
             print(f"  {s[0]:<5} {s[1]:<20} {s[2]:<15} {s[3]:<20} {s[4]:<12} {str(s[5]):<20}")
     else:
-        print("  Нет расходов")
+        print("  No spendings")
     
-    # 6. Доходы
-    print("\n[6] ДОХОДЫ:")
+    # 6. Revenues
+    print("\n[6] REVENUES:")
     cursor.execute("""
         SELECT r.id, u.company_name, r.amount, r.month, r.year, r.created_at
         FROM revenues r
@@ -122,10 +122,10 @@ try:
         for r in revenues:
             print(f"  {r[0]:<5} {r[1]:<20} {r[2]:<12} {r[3]:<6} {r[4]:<6} {str(r[5]):<20}")
     else:
-        print("  Нет доходов")
+        print("  No revenues")
     
-    # 7. Статистика
-    print("\n[7] СТАТИСТИКА:")
+    # 7. Statistics
+    print("\n[7] STATISTICS:")
     cursor.execute("""
         SELECT 
             'users' as table_name, COUNT(*)::text as count FROM users
@@ -151,9 +151,9 @@ try:
         print(f"  {s[0]:<25} {s[1]:<10}")
     
     conn.close()
-    print("\n[OK] Готово!")
+    print("\n[OK] Done!")
     
 except Exception as e:
-    print(f"[ERROR] Ошибка: {e}")
+    print(f"[ERROR] Error: {e}")
     exit(1)
 

@@ -2083,19 +2083,22 @@ select.form-input:focus {
 .donut-chart-wrapper {
     display: flex;
     gap: var(--spacing-xl);
-    align-items: flex-start;
+    align-items: flex-end;
+    justify-content: center;
     padding: var(--spacing-lg);
-    min-height: 380px;
+    padding-top: var(--spacing-xxl);
+    min-height: 500px;
 }
 
 .donut-chart-container {
     flex: 0 0 auto;
-    width: 300px;
-    height: 300px;
+    width: 480px;
+    height: 480px;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
+    margin-top: auto;
 }
 
 .donut-chart-container canvas {
@@ -2116,6 +2119,17 @@ select.form-input:focus {
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-sm) 0;
+    transition: transform 0.2s ease;
+    position: relative;
+    cursor: pointer;
+}
+
+.legend-item:hover {
+    transform: translateY(-4px);
+}
+
+.legend-item:hover * {
+    transform: none;
 }
 
 .legend-color {

@@ -1,22 +1,27 @@
 #!/usr/bin/env python3
 """
-Скрипт для добавления тестовых данных в базу данных
+Script for adding test data to the database
 """
 import psycopg2
 import os
+import bcrypt
 from dotenv import load_dotenv
 from datetime import date, datetime
-from passlib.context import CryptContext
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL or not DATABASE_URL.startswith("postgresql"):
-    print("[ERROR] DATABASE_URL не настроен для PostgreSQL!")
+    print("[ERROR] DATABASE_URL is not configured for PostgreSQL!")
     exit(1)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def get_password_hash(password: str) -> str:
+    """Hash a password using bcrypt directly"""
+    salt = bcrypt.gensalt(rounds=12)
+    password_bytes = password.encode('utf-8')
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 try:
     conn = psycopg2.connect(DATABASE_URL)
@@ -28,7 +33,7 @@ try:
     
     # 1. Create user
     print("\n[1] Creating user...")
-    password_hash = pwd_context.hash("test123")
+    password_hash = get_password_hash("test123")
     cursor.execute("""
         INSERT INTO users (email, password_hash, company_name, created_at)
         VALUES (%s, %s, %s, NOW())

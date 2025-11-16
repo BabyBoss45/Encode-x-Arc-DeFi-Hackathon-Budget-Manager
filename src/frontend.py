@@ -289,11 +289,12 @@ async def constructor_page(request: Request):
                 
                 ceo_spendings = [s for s in spendings if s.get("department_id") is None]
                 ceo_data = {
+                    "circle_wallet_id": company.get("circle_wallet_id", ""),
                     "master_wallet": company.get("master_wallet_address", ""),
                     "payroll_frequency": "Monthly",  # Default
                     "payroll_date": company.get("payroll_date"),
                     "payroll_time": company.get("payroll_time")
-                } if company.get("master_wallet_address") else None
+                } if company else None
                 
                 # Transform revenues
                 revenues_list = [{"month": f"{r.get('year', '')}-{r.get('month', ''):02d}", "amount": r.get("amount", 0)} for r in revenues]
@@ -346,28 +347,34 @@ async def constructor_page(request: Request):
             "revenues": revenues_list
         })
     except Exception as e:
+        # Log error but don't show it to user
+        import traceback
+        print(f"Error loading constructor: {e}")
+        traceback.print_exc()
         return templates.TemplateResponse("constructor.html", {
             "request": request,
             "ceo_data": None,
             "ceo_spendings": [],
             "departments": [],
-            "revenues": [],
-            "error": f"Error loading page: {str(e)}"
+            "revenues": []
         })
 
 
 # Handle CEO/Master Wallet
 @app.post("/constructor/ceo")
 async def save_ceo(request: Request, 
-                   master_wallet: str = Form(...), 
+                   circle_wallet_id: str = Form(None),
+                   master_wallet: str = Form(None), 
                    payroll_frequency: str = Form(...),
                    payroll_date: str = Form(None),
                    payroll_time: str = Form(None)):
     token = get_token_from_request(request)
     use_backend = check_backend_available() and token
     
-    if not master_wallet.startswith("0x") or len(master_wallet) != 42:
-        return RedirectResponse(url="/constructor?error=Invalid wallet address format", status_code=303)
+    # Validate master_wallet if provided
+    if master_wallet and master_wallet.strip():
+        if not master_wallet.startswith("0x") or len(master_wallet) != 42:
+            return RedirectResponse(url="/constructor?error=Invalid wallet address format", status_code=303)
     
     # Parse payroll_date
     payroll_date_obj = None
@@ -396,22 +403,34 @@ async def save_ceo(request: Request,
             set_api_token(token)
             # Update master wallet with payroll date and time
             import requests
+            # Build request payload
+            payload = {
+                "payroll_date": payroll_date_obj.isoformat() if payroll_date_obj else None,
+                "payroll_time": payroll_time if payroll_time and payroll_time.strip() else None
+            }
+            # Add master_wallet_address if provided
+            if master_wallet and master_wallet.strip():
+                payload["master_wallet_address"] = master_wallet.strip()
+            # Add circle_wallet_id if provided
+            if circle_wallet_id and circle_wallet_id.strip():
+                payload["circle_wallet_id"] = circle_wallet_id.strip()
+            
             response = requests.put(
                 f"{api_client.base_url}/company/master-wallet",
-                json={
-                    "master_wallet_address": master_wallet,
-                    "payroll_date": payroll_date_obj.isoformat() if payroll_date_obj else None,
-                    "payroll_time": payroll_time if payroll_time and payroll_time.strip() else None
-                },
+                json=payload,
                 headers=api_client._get_headers()
             )
             response.raise_for_status()
         except Exception as e:
+            print(f"Error saving CEO settings: {e}")
+            import traceback
+            traceback.print_exc()
             return RedirectResponse(url="/constructor?error=Failed to save settings", status_code=303)
     else:
         # Fallback
         fallback_data["organization"]["ceo"] = {
-            "master_wallet": master_wallet,
+            "circle_wallet_id": circle_wallet_id if circle_wallet_id and circle_wallet_id.strip() else None,
+            "master_wallet": master_wallet if master_wallet and master_wallet.strip() else None,
             "payroll_frequency": payroll_frequency,
             "payroll_date": payroll_date if payroll_date and payroll_date.strip() else None,
             "payroll_time": payroll_time if payroll_time and payroll_time.strip() else None
@@ -731,11 +750,29 @@ async def dashboard(request: Request):
                     payroll_transactions = future_payroll.result()
                     circle_transactions = future_circle_transactions.result()
                 
+                # Ensure all variables are safe (not None)
+                if stats is None:
+                    stats = {}
+                if departments is None:
+                    departments = []
+                if workers is None:
+                    workers = []
+                if spendings is None:
+                    spendings = []
+                if revenues is None:
+                    revenues = []
+                if company is None:
+                    company = {}
+                if payroll_transactions is None:
+                    payroll_transactions = []
+                if circle_transactions is None:
+                    circle_transactions = []
+                
                 # Transform for template - optimized with dictionaries
                 # Create lookup dictionaries for O(1) access instead of O(n) loops
                 workers_by_dept = {}
                 for worker in workers:
-                    if worker.get("is_active", True):
+                    if worker and isinstance(worker, dict) and worker.get("is_active", True):
                         dept_id = worker.get("department_id")
                         if dept_id not in workers_by_dept:
                             workers_by_dept[dept_id] = []
@@ -743,61 +780,82 @@ async def dashboard(request: Request):
                 
                 spendings_by_dept = {}
                 for spending in spendings:
-                    dept_id = spending.get("department_id")
-                    if dept_id not in spendings_by_dept:
-                        spendings_by_dept[dept_id] = []
-                    spendings_by_dept[dept_id].append(spending)
+                    if spending and isinstance(spending, dict):
+                        dept_id = spending.get("department_id")
+                        if dept_id not in spendings_by_dept:
+                            spendings_by_dept[dept_id] = []
+                        spendings_by_dept[dept_id].append(spending)
                 
                 # Create department lookup for fast access
-                dept_lookup = {dept.get("id"): dept for dept in departments}
+                dept_lookup = {}
+                for dept in departments:
+                    if dept and isinstance(dept, dict):
+                        dept_id = dept.get("id")
+                        if dept_id:
+                            dept_lookup[dept_id] = dept
                 
                 dept_stats = []
                 for dept in departments:
-                    dept_id = dept.get("id")
-                    dept_workers = workers_by_dept.get(dept_id, [])
-                    dept_payroll = sum(w.get("salary", 0) for w in dept_workers)
-                    dept_spendings_list = spendings_by_dept.get(dept_id, [])
-                    dept_spendings_amount = sum(s.get("amount", 0) for s in dept_spendings_list)
-                    
-                    dept_stats.append({
-                        "name": dept.get("name", ""),
-                        "worker_count": len(dept_workers),
-                        "payroll": dept_payroll,
-                        "spendings": dept_spendings_amount,
-                        "total": dept_payroll + dept_spendings_amount,
-                        "workers": dept_workers
-                    })
+                    if dept and isinstance(dept, dict):
+                        dept_id = dept.get("id")
+                        dept_workers = workers_by_dept.get(dept_id, [])
+                        dept_payroll = sum(w.get("salary", 0) for w in dept_workers if w and isinstance(w, dict))
+                        dept_spendings_list = spendings_by_dept.get(dept_id, [])
+                        dept_spendings_amount = sum(s.get("amount", 0) for s in dept_spendings_list if s and isinstance(s, dict))
+                        
+                        dept_stats.append({
+                            "name": dept.get("name", ""),
+                            "worker_count": len(dept_workers),
+                            "payroll": dept_payroll,
+                            "spendings": dept_spendings_amount,
+                            "total": dept_payroll + dept_spendings_amount,
+                            "workers": dept_workers
+                        })
                 
                 # Company data already loaded above
-                ceo_data = {
-                    "master_wallet": company.get("master_wallet_address", "")
-                } if company.get("master_wallet_address") else None
+                ceo_data = None
+                if company and isinstance(company, dict) and company.get("master_wallet_address"):
+                    ceo_data = {
+                        "master_wallet": company.get("master_wallet_address", "")
+                    }
                 
-                revenues_list = [{"month": f"{r.get('year', '')}-{r.get('month', ''):02d}", "amount": r.get("amount", 0)} for r in revenues]
+                revenues_list = []
+                for r in revenues:
+                    if r and isinstance(r, dict):
+                        revenues_list.append({
+                            "month": f"{r.get('year', '')}-{r.get('month', ''):02d}",
+                            "amount": r.get("amount", 0)
+                        })
                 
                 expenses_list = []
                 # Create a map of worker_id to latest payroll transaction date
                 worker_payroll_dates = {}
                 for transaction in payroll_transactions:
-                    worker_id = transaction.get("worker_id")
-                    if worker_id:
-                        # Get the most recent transaction date for each worker
-                        transaction_date = transaction.get("created_at") or transaction.get("period_end")
-                        if transaction_date:
-                            # Extract date part if it's a datetime string
-                            if isinstance(transaction_date, str):
-                                transaction_date = transaction_date.split("T")[0] if "T" in transaction_date else transaction_date
-                            # Keep the most recent date for each worker
-                            if worker_id not in worker_payroll_dates or transaction_date > worker_payroll_dates[worker_id]:
-                                worker_payroll_dates[worker_id] = transaction_date
+                    if transaction and isinstance(transaction, dict):
+                        worker_id = transaction.get("worker_id")
+                        if worker_id:
+                            # Get the most recent transaction date for each worker
+                            transaction_date = transaction.get("created_at") or transaction.get("period_end")
+                            if transaction_date:
+                                # Extract date part if it's a datetime string
+                                if isinstance(transaction_date, str):
+                                    transaction_date = transaction_date.split("T")[0] if "T" in transaction_date else transaction_date
+                                # Keep the most recent date for each worker
+                                if worker_id not in worker_payroll_dates or transaction_date > worker_payroll_dates[worker_id]:
+                                    worker_payroll_dates[worker_id] = transaction_date
                 
                 # Create department lookup for O(1) access
-                dept_lookup = {dept.get("id"): dept.get("name", "Unknown") for dept in departments}
+                dept_lookup_names = {}
+                for dept in departments:
+                    if dept and isinstance(dept, dict):
+                        dept_id = dept.get("id")
+                        if dept_id:
+                            dept_lookup_names[dept_id] = dept.get("name", "Unknown")
                 
                 for worker in workers:
-                    if worker.get("is_active", True):
+                    if worker and isinstance(worker, dict) and worker.get("is_active", True):
                         dept_id = worker.get("department_id")
-                        dept_name = dept_lookup.get(dept_id, "Unknown")
+                        dept_name = dept_lookup_names.get(dept_id, "Unknown")
                         
                         # Get payroll date from transaction, or use worker created_at, or current date
                         from datetime import datetime
@@ -827,42 +885,45 @@ async def dashboard(request: Request):
                         })
                 
                 for spending in spendings:
-                    # Get date from spending (if available) or use current date
-                    from datetime import datetime
-                    expense_date = spending.get("created_at", datetime.now().isoformat())
-                    if isinstance(expense_date, str):
-                        # Extract date part if it's a datetime string
-                        expense_date = expense_date.split("T")[0] if "T" in expense_date else expense_date
-                    elif hasattr(expense_date, "date"):
-                        expense_date = expense_date.date().isoformat()
-                    else:
-                        expense_date = datetime.now().date().isoformat()
-                    
-                    expenses_list.append({
-                        "type": "Spending",
-                        "name": spending.get("name", ""),
-                        "amount": spending.get("amount", 0),
-                        "date": expense_date,
-                        "spending_id": spending.get("id"),
-                        "expense_id": spending.get("id"),
-                        "expense_type": "spending"
-                    })
+                    if spending and isinstance(spending, dict):
+                        # Get date from spending (if available) or use current date
+                        from datetime import datetime
+                        expense_date = spending.get("created_at", datetime.now().isoformat())
+                        if isinstance(expense_date, str):
+                            # Extract date part if it's a datetime string
+                            expense_date = expense_date.split("T")[0] if "T" in expense_date else expense_date
+                        elif hasattr(expense_date, "date"):
+                            expense_date = expense_date.date().isoformat()
+                        else:
+                            expense_date = datetime.now().date().isoformat()
+                        
+                        expenses_list.append({
+                            "type": "Spending",
+                            "name": spending.get("name", ""),
+                            "amount": spending.get("amount", 0),
+                            "date": expense_date,
+                            "spending_id": spending.get("id"),
+                            "expense_id": spending.get("id"),
+                            "expense_type": "spending"
+                        })
                 
                 # Use Circle transactions if available and not empty, otherwise fallback to expenses_list
                 if circle_transactions and isinstance(circle_transactions, list) and len(circle_transactions) > 0:
-                    transactions_list = circle_transactions
+                    # Filter out None values from circle_transactions
+                    transactions_list = [tx for tx in circle_transactions if tx and isinstance(tx, dict)]
                 else:
                     transactions_list = expenses_list
                 
                 return templates.TemplateResponse("dashboard.html", {
                     "request": request,
-                    "total_workers": stats.get("total_workers", 0),
-                    "total_departments": stats.get("total_departments", 0),
-                    "total_payroll": stats.get("total_payroll", 0),
-                    "total_spendings": stats.get("total_spendings", 0),
-                    "total_expenses": stats.get("total_expenses", 0),
-                    "total_revenue": stats.get("total_revenue", 0),
-                    "profit": stats.get("profit", 0),
+                    "total_workers": stats.get("total_workers", 0) if stats else 0,
+                    "total_departments": stats.get("total_departments", 0) if stats else 0,
+                    "total_payroll": stats.get("total_payroll", 0) if stats else 0,
+                    "total_spendings": stats.get("total_spendings", 0) if stats else 0,
+                    "total_expenses": stats.get("total_expenses", 0) if stats else 0,
+                    "total_revenue": stats.get("total_revenue", 0) if stats else 0,
+                    "profit": stats.get("profit", 0) if stats else 0,
+                    "wallet_balance": stats.get("wallet_balance") if stats else None,
                     "dept_stats": dept_stats,
                     "ceo_data": ceo_data,
                     "revenues_list": revenues_list,
@@ -884,6 +945,7 @@ async def dashboard(request: Request):
                     "total_expenses": 0,
                     "total_revenue": 0,
                     "profit": 0,
+                    "wallet_balance": None,
                     "dept_stats": [],
                     "ceo_data": None,
                     "revenues_list": [],
@@ -949,6 +1011,7 @@ async def dashboard(request: Request):
                 "total_expenses": total_expenses,
                 "total_revenue": total_revenue,
                 "profit": profit,
+                "wallet_balance": None,
                 "dept_stats": dept_stats,
                 "ceo_data": org["ceo"],
                 "revenues_list": revenues_list,
@@ -956,6 +1019,10 @@ async def dashboard(request: Request):
                 "circle_transactions": []
             })
     except Exception as e:
+        # Log error but don't show it to user
+        import traceback
+        print(f"Error loading dashboard: {e}")
+        traceback.print_exc()
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
             "total_workers": 0,
@@ -965,12 +1032,12 @@ async def dashboard(request: Request):
             "total_expenses": 0,
             "total_revenue": 0,
             "profit": 0,
+            "wallet_balance": None,
             "dept_stats": [],
             "ceo_data": None,
             "revenues_list": [],
             "expenses_list": [],
-            "circle_transactions": [],
-            "error": str(e)
+            "circle_transactions": []
         })
 
 

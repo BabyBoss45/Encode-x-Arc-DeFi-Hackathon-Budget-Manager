@@ -1,5 +1,5 @@
 """
-Быстрое обновление времени отправки зарплаты
+Quick update of payroll time
 """
 import sys
 import os
@@ -17,7 +17,7 @@ from datetime import date
 load_dotenv(Path(__file__).parent / ".env")
 
 def set_payroll_time(target_time: str):
-    """Установить время отправки зарплаты"""
+    """Set payroll time"""
     db = SessionLocal()
     
     try:

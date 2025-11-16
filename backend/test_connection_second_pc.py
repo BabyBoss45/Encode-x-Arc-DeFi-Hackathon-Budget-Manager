@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Скрипт для проверки подключения на втором ПК
+Script for checking connection on second PC
 """
 import sys
 import os

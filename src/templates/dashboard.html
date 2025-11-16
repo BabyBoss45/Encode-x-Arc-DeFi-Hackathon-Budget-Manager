@@ -6,6 +6,7 @@
     <title>ARC budget - Dashboard</title>
     <link rel="stylesheet" href="/static/futuristic.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -35,12 +36,12 @@
                     
                     <div class="card">
                         <div class="chart-header">
-                            <h2 class="card-title">Expenses by Month</h2>
+                            <h2 class="card-title">Expenses by Day</h2>
                             <div class="date-picker-container">
-                                <label for="startMonth">From:</label>
-                                <input type="month" id="startMonth" class="date-input">
-                                <label for="endMonth">To:</label>
-                                <input type="month" id="endMonth" class="date-input">
+                                <label for="startDate">From:</label>
+                                <input type="date" id="startDate" class="date-input">
+                                <label for="endDate">To:</label>
+                                <input type="date" id="endDate" class="date-input">
                                 <button id="updateChart" class="btn btn-primary btn-small">Update</button>
                             </div>
                         </div>
@@ -107,66 +108,59 @@
                             </div>
                         </div>
                         <div class="expenses-table-container">
+                            {# DEBUG: circle_transactions count: {{ circle_transactions|length if circle_transactions else 0 }} #}
                             {% if circle_transactions %}
                             <table class="expenses-table">
                                 <thead>
                                     <tr>
                                         <th>
-                                            Transaction ID
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </th>
-                                        <th>
-                                            Reference ID
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
+                                            Transaction Status
                                         </th>
                                         <th>
                                             Date
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
                                         </th>
                                         <th>
                                             Amount
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
                                         </th>
-                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for tx in circle_transactions %}
+                                    {% if tx %}
                                     <tr class="expense-row" style="cursor: pointer;">
-                                        <td class="expense-transaction-id">
-                                            {% set tx_id = tx.get('transaction_id', 'N/A') %}
-                                            {% if tx_id|length > 14 %}
-                                                {{ tx_id[:7] }}...{{ tx_id[-6:] }}
-                                            {% else %}
-                                                {{ tx_id }}
-                                            {% endif %}
-                                        </td>
                                         <td class="expense-reference-id">
-                                            {% set ref_id = tx.get('reference_id', 'N/A') %}
-                                            {% if ref_id|length > 12 %}
-                                                {{ ref_id[:6] }}...{{ ref_id[-6:] }}
+                                            <span style="color: #10b981; font-weight: 500;">Complete</span>
+                                        </td>
+                                        <td class="expense-date">
+                                            {% set date_str = tx.get('date', 'N/A') if tx else 'N/A' %}
+                                            {% if date_str != 'N/A' and ',' in date_str %}
+                                                {% set parts = date_str.split(',') %}
+                                                {% if parts|length >= 3 %}
+                                                    {# Format: "Jan 27, 2025, 1:56 PM" #}
+                                                    <div>{{ parts[0].strip() }}, {{ parts[1].strip() }}</div>
+                                                    <div style="color: #6B7280; font-size: 0.875rem; margin-top: 0.25rem;">{{ parts[2].strip() }}</div>
+                                                {% elif parts|length == 2 %}
+                                                    {# Fallback: try to split by space after second comma #}
+                                                    {% set second_part = parts[1].strip() %}
+                                                    {% if ' ' in second_part %}
+                                                        {% set second_parts = second_part.split(' ', 1) %}
+                                                        <div>{{ parts[0].strip() }}, {{ second_parts[0] }}</div>
+                                                        <div style="color: #6B7280; font-size: 0.875rem; margin-top: 0.25rem;">{{ second_parts[1] if second_parts|length > 1 else '' }}</div>
+                                                    {% else %}
+                                                        {{ date_str }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    {{ date_str }}
+                                                {% endif %}
                                             {% else %}
-                                                {{ ref_id }}
+                                                {{ date_str }}
                                             {% endif %}
                                         </td>
-                                        <td class="expense-date">{{ tx.get('date', 'N/A') }}</td>
-                                        <td class="expense-amount" style="color: {% if tx.get('is_incoming', False) %}#10b981{% else %}#ef4444{% endif %}; font-weight: 500;">
-                                            {% if tx.get('is_incoming', False) %}+{% else %}-{% endif %} {{ tx.get('amount_formatted', tx.get('amount', 0)) }} {{ tx.get('currency', 'USDC') }}
-                                        </td>
-                                        <td class="expense-arrow">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
+                                        <td class="expense-amount" style="color: {% if tx and tx.get('is_incoming', False) %}#10b981{% else %}#ef4444{% endif %}; font-weight: 500;">
+                                            {% if tx and tx.get('is_incoming', False) %}+{% else %}-{% endif %} {{ tx.get('amount_formatted', tx.get('amount', 0)) if tx else '0.00' }} {{ tx.get('currency', 'USDC') if tx else 'USDC' }}
                                         </td>
                                     </tr>
+                                    {% endif %}
                                     {% endfor %}
                                 </tbody>
                             </table>
@@ -175,44 +169,24 @@
                                 <thead>
                                     <tr>
                                         <th>
-                                            Transaction ID
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </th>
-                                        <th>
-                                            Reference ID
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
+                                            Transaction Status
                                         </th>
                                         <th>
                                             Date
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
                                         </th>
                                         <th>
                                             Amount
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
                                         </th>
-                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for expense in expenses_list %}
                                     <tr class="expense-row" onclick="openEditExpenseModal({{ loop.index0 }})" style="cursor: pointer;">
-                                        <td class="expense-transaction-id">{{ expense.get('name', 'N/A')[:8] }}...{{ expense.get('name', 'N/A')[-6:] if expense.get('name', 'N/A')|length > 14 else expense.get('name', 'N/A') }}</td>
-                                        <td class="expense-reference-id">{{ expense.get('type', '')[:6] }}...{{ expense.get('type', '')[-6:] if expense.get('type', '')|length > 12 else expense.get('type', '') }}</td>
+                                        <td class="expense-reference-id">
+                                            <span style="color: #10b981; font-weight: 500;">Complete</span>
+                                        </td>
                                         <td class="expense-date" id="expense-date-{{ loop.index0 }}">{{ expense.get('date', 'N/A') }}</td>
                                         <td class="expense-amount negative">${{ "%.2f"|format(expense.get('amount', 0)) }}</td>
-                                        <td class="expense-arrow">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -231,21 +205,25 @@
         // Prepare data for pie chart with detailed info
         const deptData = [
             {% for dept in dept_stats %}
+            {% if dept %}
             {
-                name: "{{ dept.get('name', '') }}",
-                total: {{ dept.get('total', 0) }},
-                worker_count: {{ dept.get('worker_count', 0) }},
-                payroll: {{ dept.get('payroll', 0) }},
-                spendings: {{ dept.get('spendings', 0) }},
+                name: "{{ dept.get('name', '') if dept else '' }}",
+                total: {{ dept.get('total', 0) if dept else 0 }},
+                worker_count: {{ dept.get('worker_count', 0) if dept else 0 }},
+                payroll: {{ dept.get('payroll', 0) if dept else 0 }},
+                spendings: {{ dept.get('spendings', 0) if dept else 0 }},
                 workers: [
-                    {% for worker in dept.get('workers', []) %}
+                    {% for worker in dept.get('workers', []) if dept %}
+                    {% if worker %}
                     {
-                        name: "{{ worker.get('name', '') }} {{ worker.get('surname', '') }}",
-                        salary: {{ worker.get('salary', 0) }}
+                        name: "{{ worker.get('name', '') if worker else '' }} {{ worker.get('surname', '') if worker else '' }}",
+                        salary: {{ worker.get('salary', 0) if worker else 0 }}
                     }{% if not loop.last %},{% endif %}
+                    {% endif %}
                     {% endfor %}
                 ]
             }{% if not loop.last %},{% endif %}
+            {% endif %}
             {% endfor %}
         ];
 
@@ -271,7 +249,7 @@
         if (typeof Chart === 'undefined') {
             console.error('Chart.js is not loaded!');
             if (legendContainer) {
-                legendContainer.innerHTML = '<div style="color: #ef4444; padding: 1rem;">Error: Chart.js library not loaded. Please check your internet connection.</div>';
+                legendContainer.innerHTML = '<div style="color: #64748b; padding: 1rem; text-align: center;">Loading chart data...</div>';
             }
         } else if (ctx) {
             if (deptData.length > 0 && totalCost > 0) {
@@ -360,24 +338,42 @@
         }
 
         // Prepare expenses data for chart (will be synced with modal data later)
+        // Use circle_transactions if available, otherwise use expenses_list
         let chartExpensesData = [
-            {% for expense in expenses_list %}
+            {% if circle_transactions %}
+            {% for tx in circle_transactions %}
+            {% if tx %}
             {
-                date: "{{ expense.get('date', '') }}",
-                amount: {{ expense.get('amount', 0) }},
-                name: "{{ expense.get('name', '') }}"
+                date: "{{ tx.get('date', '') if tx else '' }}",
+                amount: {{ tx.get('amount', 0) if tx else 0 }},
+                name: "Transaction",
+                is_incoming: {{ 'true' if (tx and tx.get('is_incoming', False)) else 'false' }}
             }{% if not loop.last %},{% endif %}
+            {% endif %}
             {% endfor %}
+            {% else %}
+            {% for expense in expenses_list %}
+            {% if expense %}
+            {
+                date: "{{ expense.get('date', '') if expense else '' }}",
+                amount: {{ expense.get('amount', 0) if expense else 0 }},
+                name: "{{ expense.get('name', '') if expense else '' }}",
+                is_incoming: false
+            }{% if not loop.last %},{% endif %}
+            {% endif %}
+            {% endfor %}
+            {% endif %}
         ];
         
         // Make expensesData available globally for chart updates (create early)
         window.expensesDataForChart = chartExpensesData.map(e => ({
             date: e.date,
             amount: e.amount,
-            name: e.name
+            name: e.name,
+            is_incoming: e.is_incoming || false
         }));
         
-        // Expenses by Month Chart
+        // Expenses by Day Chart
         const expensesCtx = document.getElementById('expensesChart');
         let expensesChart = null;
         
@@ -385,49 +381,76 @@
         window.updateExpensesChart = function(chartData) {
             if (!expensesChart) return;
             
-            const startMonth = document.getElementById('startMonth')?.value;
-            const endMonth = document.getElementById('endMonth')?.value;
+            const startDate = document.getElementById('startDate')?.value;
+            const endDate = document.getElementById('endDate')?.value;
             
-            // Group expenses by month
-            const expensesByMonth = {};
+            // Prepare data: X = money, Y = date
+            // Each transaction is a separate point
+            const transactionPoints = [];
+            
             chartData.forEach((expense) => {
-                let monthKey = 'Unknown';
+                let dayKey = null;
                 if (expense.date) {
-                    const dateParts = expense.date.split('-');
-                    if (dateParts.length >= 2) {
-                        monthKey = `${dateParts[0]}-${dateParts[1]}`;
+                    // Parse date - handle different formats
+                    let dateStr = expense.date;
+                    // If date contains time (like "Jan 27, 2025, 1:56 PM"), extract just the date part
+                    if (dateStr.includes(',')) {
+                        const parts = dateStr.split(',');
+                        if (parts.length >= 2) {
+                            // Format: "Jan 27, 2025" -> convert to "2025-01-27"
+                            const monthDay = parts[0].trim();
+                            const year = parts[1].trim().split(' ')[0];
+                            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            const monthMatch = monthDay.match(/(\w+)\s+(\d+)/);
+                            if (monthMatch) {
+                                const monthName = monthMatch[1];
+                                const day = monthMatch[2].padStart(2, '0');
+                                const monthIndex = monthNames.indexOf(monthName);
+                                if (monthIndex !== -1) {
+                                    const month = String(monthIndex + 1).padStart(2, '0');
+                                    dayKey = `${year}-${month}-${day}`;
+                                }
+                            }
+                        } else {
+                            // Try to parse as ISO date
+                            dayKey = dateStr.split('T')[0].split(' ')[0];
+                        }
+                    } else {
+                        // Standard date format YYYY-MM-DD
+                        dayKey = dateStr.split('T')[0].split(' ')[0];
                     }
-                } else {
+                }
+                
+                if (!dayKey) {
                     const now = new Date();
-                    monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    dayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
                 }
                 
                 // Filter by date range if specified
-                if (startMonth && endMonth) {
-                    if (monthKey < startMonth || monthKey > endMonth) {
-                        return; // Skip this expense if outside range
+                if (startDate && endDate) {
+                    if (dayKey < startDate || dayKey > endDate) {
+                        return; // Skip this transaction if outside range
                     }
                 }
                 
-                if (!expensesByMonth[monthKey]) {
-                    expensesByMonth[monthKey] = 0;
+                // Only count outgoing transactions (expenses) - negative amounts
+                const amount = expense.is_incoming ? 0 : expense.amount;
+                
+                if (amount > 0) {
+                    // Convert date string to Date object for time scale
+                    const dateObj = new Date(dayKey + 'T00:00:00');
+                    transactionPoints.push({
+                        x: dateObj,  // X-axis = date (as Date object)
+                        y: amount    // Y-axis = money
+                    });
                 }
-                expensesByMonth[monthKey] += expense.amount;
             });
             
-            // Format month labels
-            const formatMonth = (monthStr) => {
-                const [year, month] = monthStr.split('-');
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                return `${monthNames[parseInt(month) - 1]} ${year}`;
-            };
+            // Sort by date (X-axis)
+            transactionPoints.sort((a, b) => a.x - b.x);
             
-            const months = Object.keys(expensesByMonth).sort();
-            const amounts = months.map(month => expensesByMonth[month]);
-            const monthLabels = months.map(formatMonth);
-            
-            expensesChart.data.labels = monthLabels.length > 0 ? monthLabels : ['No data in range'];
-            expensesChart.data.datasets[0].data = amounts.length > 0 ? amounts : [0];
+            // Update chart data - X = date, Y = money
+            expensesChart.data.datasets[0].data = transactionPoints.length > 0 ? transactionPoints : [{x: new Date(), y: 0}];
             expensesChart.update();
         }
         
@@ -435,19 +458,18 @@
             // Check if Chart.js is loaded
             if (typeof Chart === 'undefined') {
                 console.error('Chart.js is not loaded for expenses chart!');
-                expensesCtx.parentElement.innerHTML = '<div style="color: #ef4444; padding: 2rem; text-align: center;">Error: Chart.js library not loaded. Please check your internet connection.</div>';
+                expensesCtx.parentElement.innerHTML = '<div style="color: #64748b; padding: 2rem; text-align: center;">Loading chart data...</div>';
             } else {
                 // Use global expensesDataForChart if available, otherwise use chartExpensesData
                 const dataToUse = window.expensesDataForChart || chartExpensesData;
 
-                // Create chart first with empty data
+                // Create chart first with empty data - X = date, Y = money
                 expensesChart = new Chart(expensesCtx, {
                 type: 'line',
                 data: {
-                    labels: ['No data'],
                     datasets: [{
-                        label: 'Monthly Expenses',
-                        data: [0],
+                        label: 'Transaction Expenses',
+                        data: [{x: new Date(), y: 0}],
                         borderColor: 'rgba(245, 158, 11, 1)',
                         backgroundColor: 'rgba(245, 158, 11, 0.1)',
                         borderWidth: 3,
@@ -457,7 +479,8 @@
                         pointHoverRadius: 7,
                         pointBackgroundColor: 'rgba(245, 158, 11, 1)',
                         pointBorderColor: '#ffffff',
-                        pointBorderWidth: 2
+                        pointBorderWidth: 2,
+                        showLine: true
                     }]
                 },
                 options: {
@@ -484,19 +507,38 @@
                             borderWidth: 2,
                             padding: 15,
                             callbacks: {
+                                title: function(context) {
+                                    const date = new Date(context[0].raw.x);
+                                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                    return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+                                },
                                 label: function(context) {
-                                    return 'Expenses: $' + context.parsed.y.toFixed(2);
+                                    return 'Amount: $' + context.parsed.y.toFixed(2);
                                 }
                             }
                         }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value.toFixed(0);
+                        x: {
+                            type: 'time',
+                            position: 'bottom',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'MMM d'
                                 },
+                                tooltipFormat: 'MMM d, yyyy'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                font: {
+                                    family: "'Inter', sans-serif",
+                                    size: 12
+                                }
+                            },
+                            ticks: {
+                                maxTicksLimit: 15,
                                 font: {
                                     family: "'Inter', sans-serif"
                                 }
@@ -505,8 +547,22 @@
                                 color: 'rgba(0, 0, 0, 0.05)'
                             }
                         },
-                        x: {
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Amount ($)',
+                                font: {
+                                    family: "'Inter', sans-serif",
+                                    size: 12
+                                }
+                            },
+                            beginAtZero: true,
                             ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(0);
+                                },
                                 font: {
                                     family: "'Inter', sans-serif"
                                 }
@@ -526,31 +582,31 @@
 
                 // Date picker functionality
                 document.getElementById('updateChart').addEventListener('click', function() {
-                const startMonth = document.getElementById('startMonth').value;
-                const endMonth = document.getElementById('endMonth').value;
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
                 
-                if (startMonth && endMonth) {
+                if (startDate && endDate) {
                     // Get current expenses data (from global expensesDataForChart)
                     const currentData = window.expensesDataForChart || dataToUse;
                     if (typeof window.updateExpensesChart === 'function') {
                         window.updateExpensesChart(currentData);
                     }
                 } else {
-                    alert('Please select both start and end months');
+                    alert('Please select both start and end dates');
                 }
                 });
 
-                // Set default months (last 6 months)
+                // Set default dates (last 30 days)
                 const today = new Date();
-                const sixMonthsAgo = new Date(today);
-                sixMonthsAgo.setMonth(today.getMonth() - 6);
+                const thirtyDaysAgo = new Date(today);
+                thirtyDaysAgo.setDate(today.getDate() - 30);
                 
-                const formatMonthInput = (date) => {
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                const formatDateInput = (date) => {
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 };
                 
-                document.getElementById('endMonth').value = formatMonthInput(today);
-                document.getElementById('startMonth').value = formatMonthInput(sixMonthsAgo);
+                document.getElementById('endDate').value = formatDateInput(today);
+                document.getElementById('startDate').value = formatDateInput(thirtyDaysAgo);
             }
         }
                 
@@ -591,14 +647,16 @@
                 // Edit Expense Modal - this is the main expenses data array
                 const expensesData = [
                     {% for expense in expenses_list %}
+                    {% if expense %}
                     {
-                        name: "{{ expense.get('name', 'N/A') }}",
-                        type: "{{ expense.get('type', '') }}",
-                        amount: {{ expense.get('amount', 0) }},
-                        date: "{{ expense.get('date', '') }}",
-                        expense_id: {{ expense.get('expense_id', -1) }},
-                        expense_type: "{{ expense.get('expense_type', '') }}"
+                        name: "{{ expense.get('name', 'N/A') if expense else 'N/A' }}",
+                        type: "{{ expense.get('type', '') if expense else '' }}",
+                        amount: {{ expense.get('amount', 0) if expense else 0 }},
+                        date: "{{ expense.get('date', '') if expense else '' }}",
+                        expense_id: {{ expense.get('expense_id', -1) if expense else -1 }},
+                        expense_type: "{{ expense.get('expense_type', '') if expense else '' }}"
                     }{% if not loop.last %},{% endif %}
+                    {% endif %}
                     {% endfor %}
                 ];
                 

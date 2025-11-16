@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Проверка подключения к базе данных и отображение информации
+Check database connection and display information
 """
 import psycopg2
 import os

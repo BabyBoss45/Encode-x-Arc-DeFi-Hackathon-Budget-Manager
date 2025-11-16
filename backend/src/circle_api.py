@@ -452,6 +452,7 @@ class CircleAPI:
             print(f"[DEBUG] Response status code: {response.status_code}")
             
             response.raise_for_status()
+            
             result = response.json()
             
             token_balances = result.get("data", {}).get("tokenBalances", [])
@@ -521,6 +522,40 @@ class CircleAPI:
         except Exception as e:
             print(f"Warning: Failed to get transaction status: {e}")
             return None
+    
+    def get_wallet_transactions(self, wallet_id: str, limit: int = 50) -> list:
+        """
+        Get all transactions for a wallet from Circle API.
+        
+        Args:
+            wallet_id: Circle wallet ID (UUID)
+            limit: Maximum number of transactions to return (default: 50)
+            
+        Returns:
+            List of transaction dictionaries or empty list if error
+        """
+        url = f"{self.base_url}/v1/w3s/developer/transactions"
+        headers = self._get_headers()
+        
+        params = {
+            "walletIds": wallet_id,
+            "pageSize": limit
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            # Extract transactions from response
+            transactions = result.get("data", {}).get("transactions", [])
+            return transactions if transactions else []
+        except Exception as e:
+            print(f"Warning: Failed to get wallet transactions: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
     
     def get_wallet_address(self, wallet_id: str) -> Optional[str]:
         """
