@@ -4,6 +4,10 @@ API Client for connecting frontend to backend API
 import requests
 import os
 from typing import Optional, Dict, List
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api")
 

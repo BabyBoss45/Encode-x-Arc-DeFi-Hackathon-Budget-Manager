@@ -15,14 +15,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from circle_api import circle_api
 
-# Transaction parameters
-SENDER_WALLET_ID = "a35494a6-3d52-5eeb-8b42-b3bb5ec9a4d7"
-RECEIVER_ADDRESS = "0x7cec508e78d5d18ea5c14d846a05bab3a017d5eb"
-AMOUNT = "1.0"
-BLOCKCHAIN = "ARC-TESTNET"
+# Transaction parameters - can be overridden by environment variables or command line args
+SENDER_WALLET_ID = os.getenv("SENDER_WALLET_ID", "a35494a6-3d52-5eeb-8b42-b3bb5ec9a4d7")
+RECEIVER_ADDRESS = os.getenv("RECEIVER_ADDRESS", "0x7cec508e78d5d18ea5c14d846a05bab3a017d5eb")
+AMOUNT = os.getenv("AMOUNT", "10.0")  # Can be overridden
+BLOCKCHAIN = os.getenv("BLOCKCHAIN", "ARC-TESTNET")
+
+# Override with command line args if provided
+# Usage: python send_transaction_simple.py ENTITY_SECRET [SENDER_WALLET_ID] [RECEIVER_ADDRESS] [AMOUNT]
+if len(sys.argv) > 2:
+    SENDER_WALLET_ID = sys.argv[2]
+if len(sys.argv) > 3:
+    RECEIVER_ADDRESS = sys.argv[3]
+if len(sys.argv) > 4:
+    AMOUNT = sys.argv[4]
 
 print("=" * 80)
-print("SENDING 1 USDC TRANSACTION")
+print(f"SENDING {AMOUNT} USDC TRANSACTION")
 print("=" * 80)
 print(f"From: {SENDER_WALLET_ID}")
 print(f"To:   {RECEIVER_ADDRESS}")

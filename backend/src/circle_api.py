@@ -306,6 +306,128 @@ class CircleAPI:
             print(f"[DEBUG] Warning: Failed to find USDC token ID: {e}")
             return None
     
+    def get_usdc_balance(self, wallet_id: str) -> float:
+        """
+        Get USDC balance for a specific wallet using the wallets/balances endpoint.
+        This method uses the endpoint that returns all wallets and filters by wallet_id.
+        
+        Args:
+            wallet_id: Circle wallet ID (UUID)
+            
+        Returns:
+            USDC balance as float (0.0 if not found or error)
+        """
+        print(f"[DEBUG] CircleAPI.get_usdc_balance() called for wallet_id: {wallet_id}")
+        
+        url = f"{self.base_url}/v1/w3s/developer/wallets/balances"
+        headers = self._get_headers()
+        
+        # Get USDC token ID from environment or use default
+        usdc_token_id = os.getenv("USDC_TOKEN_ID", "15dc2b5d-0994-58b0-bf8c-3a0501148ee8")  # Default ARC-TESTNET USDC token ID
+        blockchain = os.getenv("BLOCKCHAIN", "ARC-TESTNET")
+        
+        # If USDC_TOKEN_ID not set, use the default from test
+        if not usdc_token_id or len(usdc_token_id) != 36:
+            usdc_token_id = "15dc2b5d-0994-58b0-bf8c-3a0501148ee8"
+            print(f"[DEBUG] Using default USDC_TOKEN_ID: {usdc_token_id}")
+        
+        params = {
+            "blockchain": blockchain,
+            "pageSize": 50,
+        }
+        
+        try:
+            print(f"[DEBUG] Request URL: {url}")
+            print(f"[DEBUG] Request params: {params}")
+            print(f"[DEBUG] Looking for wallet_id: {wallet_id}")
+            
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            print(f"[DEBUG] Response status: {response.status_code}")
+            
+            response.raise_for_status()
+            
+            response_json = response.json()
+            print(f"[DEBUG] Response JSON keys: {list(response_json.keys())}")
+            
+            data = response_json.get("data", {})
+            print(f"[DEBUG] Data keys: {list(data.keys())}")
+            
+            wallets = data.get("wallets", [])
+            
+            print(f"[DEBUG] Found {len(wallets)} wallet(s) in response")
+            
+            # Log all wallet IDs for debugging
+            if wallets:
+                print(f"[DEBUG] Wallet IDs in response:")
+                for idx, w in enumerate(wallets):
+                    w_id = w.get("id", "N/A")
+                    print(f"[DEBUG]   {idx + 1}. {w_id}")
+            
+            # Find the specific wallet
+            found_wallet = False
+            for w in wallets:
+                w_id = w.get("id")
+                if w_id != wallet_id:
+                    continue
+                
+                found_wallet = True
+                print(f"[DEBUG] ✓ Found matching wallet: {wallet_id}")
+                token_balances = w.get("tokenBalances", [])
+                print(f"[DEBUG] Found {len(token_balances)} token balance(s)")
+                
+                # Log all tokens for debugging
+                if token_balances:
+                    print(f"[DEBUG] Tokens in wallet:")
+                    for idx, tb in enumerate(token_balances):
+                        token = tb.get("token", {})
+                        token_symbol = token.get("symbol", "N/A")
+                        token_id = token.get("id", "N/A")
+                        amount = tb.get("amount", "0")
+                        print(f"[DEBUG]   {idx + 1}. {token_symbol} (ID: {token_id}) - Amount: {amount}")
+                
+                # Find USDC token balance
+                for tb in token_balances:
+                    token = tb.get("token", {})
+                    
+                    # Check by token ID if available
+                    if usdc_token_id and token.get("id") == usdc_token_id:
+                        amount_str = tb.get("amount", "0")
+                        try:
+                            balance = float(amount_str)
+                            print(f"[DEBUG] ✓ Found USDC balance by token_id: {balance} USDC")
+                            return balance
+                        except ValueError:
+                            print(f"[DEBUG] ✗ Invalid amount format: {amount_str}")
+                            return 0.0
+                    
+                    # Check by symbol if token ID not specified or doesn't match
+                    if token.get("symbol", "").upper() == "USDC":
+                        amount_str = tb.get("amount", "0")
+                        try:
+                            balance = float(amount_str)
+                            print(f"[DEBUG] ✓ Found USDC balance by symbol: {balance} USDC")
+                            return balance
+                        except ValueError:
+                            print(f"[DEBUG] ✗ Invalid amount format: {amount_str}")
+                            return 0.0
+                
+                print(f"[DEBUG] ✗ USDC token not found in wallet balances")
+                return 0.0
+            
+            if not found_wallet:
+                print(f"[DEBUG] ✗ Wallet {wallet_id} not found in response")
+                print(f"[DEBUG] Available wallet IDs: {[w.get('id') for w in wallets]}")
+            return 0.0
+            
+        except requests.exceptions.RequestException as e:
+            print(f"[BALANCE ERROR] Request failed: {e}")
+            return 0.0
+        except Exception as e:
+            print(f"[BALANCE ERROR] {e}")
+            import traceback
+            traceback.print_exc()
+            return 0.0
+    
     def get_wallet_balance(self, wallet_id: str, token_id: Optional[str] = None) -> float:
         """
         Get USDC balance for a Circle wallet.

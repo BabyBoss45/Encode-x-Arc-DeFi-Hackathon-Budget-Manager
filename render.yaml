@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python main.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bossboard-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CIRCLE_API_KEY
+        sync: false
+      - key: ENTITY_SECRET
+        sync: false
+      - key: USDC_TOKEN_ID
+        value: 15dc2b5d-0994-58b0-bf8c-3a0501148ee8
+
+  - type: web
+    name: frontend
+    env: python
+    buildCommand: pip install -r requirements_frontend.txt
+    startCommand: cd src && python frontend.py
+    envVars:
+      - key: API_BASE_URL
+        fromService:
+          name: backend
+          type: web
+          property: host
+          suffix: /api
+
+databases:
+  - name: bossboard-db
+    plan: free
+    databaseName: bossboard
+    user: bossboard_user
+

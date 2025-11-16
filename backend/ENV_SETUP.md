@@ -21,6 +21,9 @@ ENTITY_SECRET=your_64_character_hex_secret_here
 
 # USDC Token ID (опционально)
 USDC_TOKEN_ID=15dc2b5d-0994-58b0-bf8c-3a0501148ee8
+
+# ngrok Frontend URL (для CORS, если используете ngrok)
+# FRONTEND_URL=https://your-frontend-ngrok-url.ngrok.io
 ```
 
 ## Где найти значения
@@ -49,6 +52,12 @@ USDC_TOKEN_ID=15dc2b5d-0994-58b0-bf8c-3a0501148ee8
 - Для ARC-TESTNET: `15dc2b5d-0994-58b0-bf8c-3a0501148ee8`
 - Можно найти через API или оставить пустым (будет искаться автоматически)
 
+### 6. FRONTEND_URL (опционально, для ngrok)
+- URL вашего frontend ngrok туннеля
+- Используется для настройки CORS в backend
+- Формат: `https://xxxx-xx-xx-xx-xx.ngrok.io`
+- См. `NGROK_SETUP.md` для подробностей
+
 ## Пример полного .env файла
 
 ```env
@@ -62,6 +71,10 @@ JWT_SECRET_KEY=my-secret-key-change-in-production-12345
 CIRCLE_API_KEY=TEST_API_KEY:abc123def456ghi789
 ENTITY_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 USDC_TOKEN_ID=15dc2b5d-0994-58b0-bf8c-3a0501148ee8
+
+# ngrok Frontend URL (для CORS, если используете ngrok)
+# Раскомментируйте и укажите ваш frontend ngrok URL
+# FRONTEND_URL=https://your-frontend-ngrok-url.ngrok.io
 ```
 
 ## Проверка настроек

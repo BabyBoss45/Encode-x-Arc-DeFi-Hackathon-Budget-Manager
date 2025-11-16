@@ -9,6 +9,7 @@ from apscheduler.triggers.cron import CronTrigger  # type: ignore
 from src.database import engine, Base, SessionLocal
 from src.routes import auth, company, departments, workers, spendings, revenue, payroll, dashboard, circle
 from src.payroll_scheduler import check_and_execute_payrolls
+import os
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -56,10 +57,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BossBoard API", version="1.0.0", lifespan=lifespan)
 
-# CORS middleware
+# CORS middleware - support both localhost and ngrok URLs
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:8001",
+]
+
+# Add ngrok frontend URL from environment variable if set
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    allowed_origins.append(frontend_url)
+    print(f"[CORS] Added frontend URL: {frontend_url}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8001"],  # Frontend URLs
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -89,5 +101,7 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Support Railway and other platforms that set PORT environment variable
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 

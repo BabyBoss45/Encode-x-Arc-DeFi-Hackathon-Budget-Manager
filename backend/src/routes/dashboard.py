@@ -57,16 +57,23 @@ async def get_dashboard_stats(
     total_revenue = sum(r.amount for r in all_revenues) or 0.0
     profit = total_revenue - total_expenses
     
-    # Get wallet balance from Circle API if configured
+    # Get USDC wallet balance from Circle API if configured
     wallet_balance = None
     if company.circle_wallet_id:
+        print(f"[DASHBOARD] Getting balance for wallet_id: {company.circle_wallet_id}")
         try:
             from ..circle_api import circle_api
-            wallet_balance = circle_api.get_wallet_balance(company.circle_wallet_id)
+            # Use the new get_usdc_balance method which uses wallets/balances endpoint
+            wallet_balance = circle_api.get_usdc_balance(company.circle_wallet_id)
+            print(f"[DASHBOARD] ✓ CEO wallet balance retrieved: {wallet_balance} USDC (type: {type(wallet_balance)})")
         except Exception as e:
             # Don't fail dashboard if balance check fails
-            print(f"Warning: Could not get wallet balance: {e}")
+            print(f"[DASHBOARD] ✗ Warning: Could not get wallet balance: {e}")
+            import traceback
+            traceback.print_exc()
             wallet_balance = None
+    else:
+        print(f"[DASHBOARD] ⚠ No circle_wallet_id configured for company {company.id}")
     
     # Create lookup dictionaries for O(1) access
     workers_by_dept = {}

@@ -4,8 +4,10 @@ Payroll Scheduler: Automatic payroll execution based on company settings
 from datetime import datetime, date, time
 from sqlalchemy.orm import Session
 from src.models import Company, Worker, Department, PayrollTransaction
-from src.circle_api import circle_api
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 
 def should_run_payroll(company: Company) -> bool:
@@ -123,34 +125,18 @@ def execute_scheduled_payroll(company: Company, db: Session) -> dict:
         print(f"[PAYROLL SCHEDULER]   - Salary: {worker.salary} USDC")
         print(f"[PAYROLL SCHEDULER]   - Wallet Address (Receiver): {worker.wallet_address}")
     
-    # Check balance
-    print(f"\n[PAYROLL SCHEDULER] Checking wallet ID balance...")
-    try:
-        wallet_balance = circle_api.get_wallet_balance(company.circle_wallet_id)
-        total_payroll = sum(w.salary for w in workers)
-        print(f"[PAYROLL SCHEDULER] Wallet Balance: {wallet_balance} USDC")
-        print(f"[PAYROLL SCHEDULER] Total Payroll Required: {total_payroll} USDC")
-        
-        if wallet_balance < total_payroll:
-            print(f"[PAYROLL SCHEDULER] Insufficient balance!")
-            return {
-                "executed": False,
-                "reason": f"Insufficient balance: {wallet_balance} USDC < {total_payroll} USDC required"
-            }
-        print(f"[PAYROLL SCHEDULER] Balance sufficient ✓")
-    except Exception as e:
-        print(f"[PAYROLL SCHEDULER] Balance check failed: {e}")
-        return {"executed": False, "reason": f"Balance check failed: {str(e)}"}
-    
-    # Execute payroll for each worker
+    # Execute payroll for each worker by calling send_transaction_simple.py
     print(f"\n[PAYROLL SCHEDULER] Starting payroll execution...")
+    print(f"[PAYROLL SCHEDULER] Calling send_transaction_simple.py for each worker")
     transactions = []
     
-    # Try to get USDC token ID (will be auto-detected if not set)
-    usdc_token_id = os.getenv("USDC_TOKEN_ID", None)
-    if not usdc_token_id or len(usdc_token_id) != 36:
-        print("[PAYROLL SCHEDULER] USDC_TOKEN_ID not set or invalid, will auto-detect from wallet")
-        usdc_token_id = None  # Let circle_api auto-detect
+    # Get script path
+    script_dir = Path(__file__).parent.parent
+    script_path = script_dir / "send_transaction_simple.py"
+    
+    if not script_path.exists():
+        print(f"[PAYROLL SCHEDULER] ERROR: Script not found at {script_path}")
+        return {"executed": False, "reason": f"Script not found: {script_path}"}
     
     for idx, worker in enumerate(workers, 1):
         print(f"\n[PAYROLL SCHEDULER] Processing worker {idx}/{len(workers)}: {worker.name} {worker.surname}")
@@ -167,44 +153,92 @@ def execute_scheduled_payroll(company: Company, db: Session) -> dict:
         db.flush()
         
         try:
-            print(f"[PAYROLL SCHEDULER] Calling CircleAPI.transfer_usdc()...")
+            print(f"[PAYROLL SCHEDULER] Calling send_transaction_simple.py...")
             print(f"[PAYROLL SCHEDULER]   Sender (Wallet ID): {company.circle_wallet_id}")
             print(f"[PAYROLL SCHEDULER]   Receiver (Worker Address): {worker.wallet_address}")
             print(f"[PAYROLL SCHEDULER]   Amount: {worker.salary} USDC")
             
-            result = circle_api.transfer_usdc(
-                entity_secret_hex=entity_secret_hex,
-                wallet_id=company.circle_wallet_id,  # Company wallet ID (sender)
-                destination_address=worker.wallet_address,  # Worker's address (receiver)
-                amount=str(worker.salary),
-                token_id=usdc_token_id,
-                blockchain="ARC-TESTNET"
+            # Call script with parameters: ENTITY_SECRET SENDER_WALLET_ID RECEIVER_ADDRESS AMOUNT
+            result = subprocess.run(
+                [
+                    sys.executable, 
+                    str(script_path), 
+                    entity_secret_hex,
+                    company.circle_wallet_id,
+                    worker.wallet_address,
+                    str(worker.salary)
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(script_dir),
+                timeout=60
             )
             
-            circle_tx_id = result.get("id")
-            circle_state = result.get("state", "INITIATED")
+            print(f"[PAYROLL SCHEDULER] Script output:")
+            print(result.stdout)
+            if result.stderr:
+                print(f"[PAYROLL SCHEDULER] Script errors:")
+                print(result.stderr)
             
-            print(f"[PAYROLL SCHEDULER] Transaction created successfully!")
-            print(f"[PAYROLL SCHEDULER]   Transaction ID: {circle_tx_id}")
-            print(f"[PAYROLL SCHEDULER]   State: {circle_state}")
-            
-            payroll_transaction.circle_transaction_id = circle_tx_id
-            payroll_transaction.status = circle_state
-            
-            tx_data = result.get("data", {})
-            if tx_data.get("txHash"):
-                payroll_transaction.transaction_hash = tx_data.get("txHash")
-                print(f"[PAYROLL SCHEDULER]   Transaction Hash: {tx_data.get('txHash')}")
-            
+            if result.returncode == 0:
+                # Parse output to get transaction ID if possible
+                # Look for "Transaction ID:" in output
+                transaction_id = None
+                status = "INITIATED"
+                
+                for line in result.stdout.split('\n'):
+                    if 'Transaction ID:' in line:
+                        try:
+                            transaction_id = line.split('Transaction ID:')[1].strip()
+                        except:
+                            pass
+                    if 'State:' in line:
+                        try:
+                            status = line.split('State:')[1].strip()
+                        except:
+                            pass
+                
+                print(f"[PAYROLL SCHEDULER] Transaction script executed successfully!")
+                if transaction_id:
+                    payroll_transaction.circle_transaction_id = transaction_id
+                    payroll_transaction.status = status
+                    print(f"[PAYROLL SCHEDULER]   Transaction ID: {transaction_id}")
+                    print(f"[PAYROLL SCHEDULER]   State: {status}")
+                else:
+                    payroll_transaction.status = "INITIATED"
+                
+                transactions.append({
+                    "worker_id": worker.id,
+                    "worker_name": f"{worker.name} {worker.surname}",
+                    "amount": worker.salary,
+                    "status": payroll_transaction.status,
+                    "transaction_id": transaction_id
+                })
+            else:
+                print(f"[PAYROLL SCHEDULER] Script failed with return code {result.returncode}")
+                payroll_transaction.status = "failed"
+                transactions.append({
+                    "worker_id": worker.id,
+                    "worker_name": f"{worker.name} {worker.surname}",
+                    "amount": worker.salary,
+                    "status": "failed",
+                    "error": f"Script returned {result.returncode}"
+                })
+                
+        except subprocess.TimeoutExpired:
+            print(f"[PAYROLL SCHEDULER] ERROR: Script timeout for worker {worker.id}")
+            payroll_transaction.status = "failed"
             transactions.append({
                 "worker_id": worker.id,
                 "worker_name": f"{worker.name} {worker.surname}",
                 "amount": worker.salary,
-                "status": circle_state,
-                "transaction_id": circle_tx_id
+                "status": "failed",
+                "error": "Script timeout"
             })
         except Exception as e:
             print(f"[PAYROLL SCHEDULER] ERROR processing worker {worker.id}: {e}")
+            import traceback
+            traceback.print_exc()
             payroll_transaction.status = "failed"
             transactions.append({
                 "worker_id": worker.id,
@@ -233,20 +267,43 @@ def check_and_execute_payrolls(db: Session):
     Check all companies and execute payrolls for those scheduled now.
     Called periodically by background scheduler.
     """
-    print("\n[PAYROLL SCHEDULER] check_and_execute_payrolls() called")
-    print(f"[PAYROLL SCHEDULER] Checking all companies for scheduled payrolls...")
+    print("\n" + "=" * 80)
+    print("[PAYROLL SCHEDULER] ===== CHECKING ALL COMPANIES FOR PAYROLL =====")
+    print("=" * 80)
     
+    # Get ALL companies first to see total count
+    all_companies = db.query(Company).all()
+    print(f"[PAYROLL SCHEDULER] Total companies in database: {len(all_companies)}")
+    
+    # Filter companies with payroll configuration
     companies = db.query(Company).filter(
         Company.payroll_date.isnot(None),
         Company.payroll_time.isnot(None),
         Company.circle_wallet_id.isnot(None)
     ).all()
     
-    print(f"[PAYROLL SCHEDULER] Found {len(companies)} company/companies with payroll configuration")
+    print(f"[PAYROLL SCHEDULER] Companies with payroll configuration: {len(companies)}")
+    
+    # Log all companies for debugging
+    if len(companies) == 0:
+        print("[PAYROLL SCHEDULER] ⚠ No companies found with payroll configuration!")
+        print("[PAYROLL SCHEDULER] Companies need:")
+        print("[PAYROLL SCHEDULER]   - payroll_date set")
+        print("[PAYROLL SCHEDULER]   - payroll_time set")
+        print("[PAYROLL SCHEDULER]   - circle_wallet_id set")
+    else:
+        print(f"\n[PAYROLL SCHEDULER] Processing {len(companies)} company/companies:")
+        for idx, company in enumerate(companies, 1):
+            print(f"[PAYROLL SCHEDULER]   {idx}. Company ID: {company.id}")
+            print(f"[PAYROLL SCHEDULER]      - Payroll Date: {company.payroll_date}")
+            print(f"[PAYROLL SCHEDULER]      - Payroll Time: {company.payroll_time}")
+            print(f"[PAYROLL SCHEDULER]      - Wallet ID: {company.circle_wallet_id}")
     
     results = []
-    for company in companies:
-        print(f"\n[PAYROLL SCHEDULER] Checking company {company.id}...")
+    for idx, company in enumerate(companies, 1):
+        print(f"\n[PAYROLL SCHEDULER] {'='*76}")
+        print(f"[PAYROLL SCHEDULER] Processing company {idx}/{len(companies)}: Company ID {company.id}")
+        print(f"[PAYROLL SCHEDULER] {'='*76}")
         print(f"[PAYROLL SCHEDULER]   Payroll Date: {company.payroll_date}")
         print(f"[PAYROLL SCHEDULER]   Payroll Time: {company.payroll_time}")
         print(f"[PAYROLL SCHEDULER]   Wallet ID: {company.circle_wallet_id}")
@@ -265,6 +322,11 @@ def check_and_execute_payrolls(db: Session):
                 # Log reason for not executing
                 reason = result.get('reason', 'Unknown')
                 print(f"[PAYROLL SCHEDULER] ⚠ Payroll not executed for company {company.id}: {reason}")
+                results.append({
+                    "company_id": company.id,
+                    "success": False,
+                    "reason": reason
+                })
         except Exception as e:
             print(f"[PAYROLL SCHEDULER] ✗ ERROR executing payroll for company {company.id}: {e}")
             import traceback
@@ -275,6 +337,13 @@ def check_and_execute_payrolls(db: Session):
                 "error": str(e)
             })
     
-    print(f"\n[PAYROLL SCHEDULER] Check complete. Processed {len(results)} company/companies")
+    print(f"\n[PAYROLL SCHEDULER] {'='*76}")
+    print(f"[PAYROLL SCHEDULER] CHECK COMPLETE")
+    print(f"[PAYROLL SCHEDULER] Total companies checked: {len(companies)}")
+    print(f"[PAYROLL SCHEDULER] Companies processed: {len(results)}")
+    print(f"[PAYROLL SCHEDULER] Successful executions: {sum(1 for r in results if r.get('success'))}")
+    print(f"[PAYROLL SCHEDULER] Failed/Skipped: {sum(1 for r in results if not r.get('success'))}")
+    print(f"[PAYROLL SCHEDULER] {'='*76}\n")
+    
     return results
 

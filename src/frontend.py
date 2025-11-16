@@ -288,12 +288,17 @@ async def constructor_page(request: Request):
                     })
                 
                 ceo_spendings = [s for s in spendings if s.get("department_id") is None]
-                ceo_data = {
-                    "master_wallet": company.get("master_wallet_address", ""),
-                    "payroll_frequency": "Monthly",  # Default
-                    "payroll_date": company.get("payroll_date"),
-                    "payroll_time": company.get("payroll_time")
-                } if company.get("master_wallet_address") else None
+                # Show CEO data if circle_wallet_id OR master_wallet_address exists
+                if company.get("circle_wallet_id") or company.get("master_wallet_address"):
+                    ceo_data = {
+                        "circle_wallet_id": company.get("circle_wallet_id", ""),
+                        "master_wallet": company.get("master_wallet_address", ""),
+                        "payroll_frequency": "Monthly",  # Default
+                        "payroll_date": company.get("payroll_date"),
+                        "payroll_time": company.get("payroll_time")
+                    }
+                else:
+                    ceo_data = None
                 
                 # Transform revenues
                 revenues_list = [{"month": f"{r.get('year', '')}-{r.get('month', ''):02d}", "amount": r.get("amount", 0)} for r in revenues]
@@ -359,15 +364,25 @@ async def constructor_page(request: Request):
 # Handle CEO/Master Wallet
 @app.post("/constructor/ceo")
 async def save_ceo(request: Request, 
-                   master_wallet: str = Form(...), 
+                   circle_wallet_id: str = Form(...),
+                   master_wallet: str = Form(None), 
                    payroll_frequency: str = Form(...),
                    payroll_date: str = Form(None),
                    payroll_time: str = Form(None)):
     token = get_token_from_request(request)
     use_backend = check_backend_available() and token
     
-    if not master_wallet.startswith("0x") or len(master_wallet) != 42:
-        return RedirectResponse(url="/constructor?error=Invalid wallet address format", status_code=303)
+    # Validate Circle Wallet ID (UUID format)
+    import re
+    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
+    if not uuid_pattern.match(circle_wallet_id.strip()):
+        return RedirectResponse(url="/constructor?error=Invalid Circle Wallet ID format (must be UUID)", status_code=303)
+    
+    # Validate master wallet address if provided (optional)
+    if master_wallet and master_wallet.strip():
+        master_wallet = master_wallet.strip()
+        if not master_wallet.startswith("0x") or len(master_wallet) != 42:
+            return RedirectResponse(url="/constructor?error=Invalid master wallet address format", status_code=303)
     
     # Parse payroll_date
     payroll_date_obj = None
@@ -396,22 +411,71 @@ async def save_ceo(request: Request,
             set_api_token(token)
             # Update master wallet with payroll date and time
             import requests
+            
+            wallet_id_clean = circle_wallet_id.strip()
+            print(f"[FRONTEND DEBUG] Sending circle_wallet_id: '{wallet_id_clean}' (length: {len(wallet_id_clean)})")
+            
+            request_data = {
+                "circle_wallet_id": wallet_id_clean,
+                "master_wallet_address": master_wallet if master_wallet and master_wallet.strip() else None,
+                "payroll_date": payroll_date_obj.isoformat() if payroll_date_obj else None,
+                "payroll_time": payroll_time if payroll_time and payroll_time.strip() else None
+            }
+            print(f"[FRONTEND DEBUG] Request data: {request_data}")
+            
             response = requests.put(
                 f"{api_client.base_url}/company/master-wallet",
-                json={
-                    "master_wallet_address": master_wallet,
-                    "payroll_date": payroll_date_obj.isoformat() if payroll_date_obj else None,
-                    "payroll_time": payroll_time if payroll_time and payroll_time.strip() else None
-                },
+                json=request_data,
                 headers=api_client._get_headers()
             )
+            
+            print(f"[FRONTEND DEBUG] Response status: {response.status_code}")
+            if response.status_code == 200:
+                response_data = response.json()
+                print(f"[FRONTEND DEBUG] Response data: circle_wallet_id = '{response_data.get('circle_wallet_id', 'NOT SET')}' (length: {len(response_data.get('circle_wallet_id', '')) if response_data.get('circle_wallet_id') else 0})")
+            
+            # Better error handling
+            if response.status_code == 404:
+                # Company not found - try to create it first
+                # This shouldn't happen if user registered properly, but handle it anyway
+                error_msg = "Company not found. Please contact support."
+                print(f"[ERROR] Company not found for user. Response: {response.text}")
+                return RedirectResponse(url=f"/constructor?error={error_msg}", status_code=303)
+            elif response.status_code == 400:
+                # Bad request - show the actual error message
+                try:
+                    error_data = response.json()
+                    error_detail = error_data.get("detail", "Invalid request")
+                    print(f"[ERROR] Bad request: {error_detail}")
+                    return RedirectResponse(url=f"/constructor?error={error_detail}", status_code=303)
+                except:
+                    error_msg = f"Invalid request: {response.text[:100]}"
+                    print(f"[ERROR] Bad request (no JSON): {error_msg}")
+                    return RedirectResponse(url=f"/constructor?error=Invalid request", status_code=303)
+            
             response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            error_msg = f"HTTP Error: {e.response.status_code}"
+            if e.response.text:
+                try:
+                    error_data = e.response.json()
+                    error_detail = error_data.get("detail", error_msg)
+                    error_msg = error_detail
+                except:
+                    error_msg = f"HTTP {e.response.status_code}: {e.response.text[:100]}"
+            print(f"[ERROR] HTTP Error saving CEO: {error_msg}")
+            return RedirectResponse(url=f"/constructor?error={error_msg}", status_code=303)
         except Exception as e:
-            return RedirectResponse(url="/constructor?error=Failed to save settings", status_code=303)
+            error_msg = f"Failed to save settings: {str(e)}"
+            print(f"[ERROR] Exception saving CEO: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return RedirectResponse(url=f"/constructor?error={error_msg}", status_code=303)
     else:
         # Fallback
         fallback_data["organization"]["ceo"] = {
-            "master_wallet": master_wallet,
+            "circle_wallet_id": circle_wallet_id.strip(),
+            "master_wallet": master_wallet if master_wallet and master_wallet.strip() else None,
             "payroll_frequency": payroll_frequency,
             "payroll_date": payroll_date if payroll_date and payroll_date.strip() else None,
             "payroll_time": payroll_time if payroll_time and payroll_time.strip() else None
@@ -721,6 +785,10 @@ async def dashboard(request: Request):
                     revenues = future_revenues.result()
                     company = future_company.result()
                     payroll_transactions = future_payroll.result()
+                    
+                    # Debug: Log wallet balance from stats
+                    print(f"[FRONTEND DEBUG] Stats received: wallet_balance = {stats.get('wallet_balance')} (type: {type(stats.get('wallet_balance'))})")
+                    print(f"[FRONTEND DEBUG] Company circle_wallet_id: {company.get('circle_wallet_id')}")
                 
                 # Transform for template - optimized with dictionaries
                 # Create lookup dictionaries for O(1) access instead of O(n) loops
@@ -760,9 +828,17 @@ async def dashboard(request: Request):
                     })
                 
                 # Company data already loaded above
-                ceo_data = {
-                    "master_wallet": company.get("master_wallet_address", "")
-                } if company.get("master_wallet_address") else None
+                # Show CEO data if circle_wallet_id OR master_wallet_address exists
+                if company.get("circle_wallet_id") or company.get("master_wallet_address"):
+                    ceo_data = {
+                        "circle_wallet_id": company.get("circle_wallet_id", ""),
+                        "master_wallet": company.get("master_wallet_address", ""),
+                        "payroll_frequency": "Monthly",  # Default
+                        "payroll_date": company.get("payroll_date"),
+                        "payroll_time": company.get("payroll_time")
+                    }
+                else:
+                    ceo_data = None
                 
                 revenues_list = [{"month": f"{r.get('year', '')}-{r.get('month', ''):02d}", "amount": r.get("amount", 0)} for r in revenues]
                 
@@ -970,7 +1046,12 @@ if __name__ == "__main__":
                 continue
         return start_port
     
-    port = find_free_port(8001)
+    # Support Railway and other platforms that set PORT environment variable
+    env_port = os.getenv("PORT")
+    if env_port:
+        port = int(env_port)
+    else:
+        port = find_free_port(8001)
     print(f"🚀 Starting ARC budget frontend on http://localhost:{port}")
     print(f"📝 Open in browser: http://localhost:{port}/login")
     print(f"💡 Make sure backend is running on http://localhost:8000 for data persistence")
