@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
 from ..models import Department, Company
-from ..schemas import DepartmentCreate, DepartmentResponse
+from ..schemas import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 from ..auth import get_current_user
 from ..cache import clear_cache
 
@@ -43,6 +43,41 @@ async def create_department(
         name=dept_data.name
     )
     db.add(department)
+    db.commit()
+    db.refresh(department)
+    
+    # Clear dashboard cache since stats changed
+    clear_cache(current_user.id)
+    
+    return department
+
+
+@router.put("/{department_id}", response_model=DepartmentResponse)
+async def update_department(
+    department_id: int,
+    dept_data: DepartmentUpdate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a department"""
+    company = db.query(Company).filter(Company.user_id == current_user.id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    department = db.query(Department).filter(
+        Department.id == department_id,
+        Department.company_id == company.id
+    ).first()
+    
+    if not department:
+        raise HTTPException(status_code=404, detail="Department not found")
+    
+    # Update fields
+    if dept_data.name is not None:
+        if not dept_data.name.strip():
+            raise HTTPException(status_code=400, detail="Department name cannot be empty")
+        department.name = dept_data.name.strip()
+    
     db.commit()
     db.refresh(department)
     

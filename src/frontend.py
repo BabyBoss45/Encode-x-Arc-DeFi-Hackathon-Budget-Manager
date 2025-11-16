@@ -848,6 +848,7 @@ async def dashboard(request: Request):
                     "total_expenses": stats.get("total_expenses", 0),
                     "total_revenue": stats.get("total_revenue", 0),
                     "profit": stats.get("profit", 0),
+                    "wallet_balance": stats.get("wallet_balance") if stats.get("wallet_balance") is not None else 0.0,  # USDC balance from Circle wallet (default to 0.0)
                     "dept_stats": dept_stats,
                     "ceo_data": ceo_data,
                     "revenues_list": revenues_list,
@@ -864,6 +865,7 @@ async def dashboard(request: Request):
                     "total_expenses": 0,
                     "total_revenue": 0,
                     "profit": 0,
+                    "wallet_balance": 0.0,  # Default to 0.0 if API fails
                     "dept_stats": [],
                     "ceo_data": None,
                     "revenues_list": [],
@@ -928,6 +930,7 @@ async def dashboard(request: Request):
                 "total_expenses": total_expenses,
                 "total_revenue": total_revenue,
                 "profit": profit,
+                "wallet_balance": 0.0,  # Default to 0.0 for fallback mode
                 "dept_stats": dept_stats,
                 "ceo_data": org["ceo"],
                 "revenues_list": revenues_list,
@@ -943,6 +946,7 @@ async def dashboard(request: Request):
             "total_expenses": 0,
             "total_revenue": 0,
             "profit": 0,
+            "wallet_balance": 0.0,  # Default to 0.0 on error
             "dept_stats": [],
             "ceo_data": None,
             "revenues_list": [],

@@ -57,6 +57,17 @@ async def get_dashboard_stats(
     total_revenue = sum(r.amount for r in all_revenues) or 0.0
     profit = total_revenue - total_expenses
     
+    # Get wallet balance from Circle API if configured
+    wallet_balance = None
+    if company.circle_wallet_id:
+        try:
+            from ..circle_api import circle_api
+            wallet_balance = circle_api.get_wallet_balance(company.circle_wallet_id)
+        except Exception as e:
+            # Don't fail dashboard if balance check fails
+            print(f"Warning: Could not get wallet balance: {e}")
+            wallet_balance = None
+    
     # Create lookup dictionaries for O(1) access
     workers_by_dept = {}
     for worker in all_workers:
@@ -97,6 +108,7 @@ async def get_dashboard_stats(
         total_spendings=total_spendings,
         total_expenses=total_expenses,
         profit=profit,
+        wallet_balance=wallet_balance,
         department_stats=department_stats
     )
     

@@ -25,7 +25,10 @@ class Token(BaseModel):
 
 # Company schemas
 class CompanyCreate(BaseModel):
-    master_wallet_address: str
+    master_wallet_address: Optional[str] = None  # Blockchain address (for display)
+    circle_wallet_id: Optional[str] = None  # Circle wallet ID (UUID)
+    circle_wallet_set_id: Optional[str] = None  # Circle wallet set ID
+    entity_secret: Optional[str] = None  # Entity secret (64 hex chars) - will be encrypted
     payroll_date: Optional[date] = None  # Date for payroll payment
     payroll_time: Optional[str] = None  # Time in 24-hour format (HH:MM)
 
@@ -33,6 +36,8 @@ class CompanyCreate(BaseModel):
 class CompanyResponse(BaseModel):
     id: int
     master_wallet_address: Optional[str]
+    circle_wallet_id: Optional[str] = None
+    circle_wallet_set_id: Optional[str] = None
     payroll_date: Optional[date] = None
     payroll_time: Optional[str] = None
     created_at: datetime
@@ -44,6 +49,10 @@ class CompanyResponse(BaseModel):
 # Department schemas
 class DepartmentCreate(BaseModel):
     name: str
+
+
+class DepartmentUpdate(BaseModel):
+    name: Optional[str] = None
 
 
 class DepartmentResponse(BaseModel):
@@ -140,8 +149,9 @@ class PayrollTransactionResponse(BaseModel):
     amount: float
     period_start: date
     period_end: date
-    status: str
-    transaction_hash: Optional[str]
+    status: str  # pending, INITIATED, QUEUED, SENT, CONFIRMED, COMPLETE, failed
+    transaction_hash: Optional[str]  # Blockchain transaction hash
+    circle_transaction_id: Optional[str] = None  # Circle transaction ID (UUID)
     created_at: datetime
     
     class Config:
@@ -157,5 +167,6 @@ class DashboardStats(BaseModel):
     total_spendings: float
     total_expenses: float
     profit: float
+    wallet_balance: Optional[float] = None  # USDC balance from Circle wallet
     department_stats: List[dict]
 
