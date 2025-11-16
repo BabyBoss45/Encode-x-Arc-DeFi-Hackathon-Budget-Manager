@@ -713,6 +713,14 @@ async def dashboard(request: Request):
                             return []
                     future_payroll = executor.submit(get_payroll_safe)
                     
+                    # Circle transactions - optional, don't fail if endpoint doesn't exist
+                    def get_circle_transactions_safe():
+                        try:
+                            return api_client.get_circle_transactions()
+                        except:
+                            return []
+                    future_circle_transactions = executor.submit(get_circle_transactions_safe)
+                    
                     # Wait for all requests to complete (they run in parallel)
                     stats = future_stats.result()
                     departments = future_departments.result()
@@ -721,6 +729,7 @@ async def dashboard(request: Request):
                     revenues = future_revenues.result()
                     company = future_company.result()
                     payroll_transactions = future_payroll.result()
+                    circle_transactions = future_circle_transactions.result()
                 
                 # Transform for template - optimized with dictionaries
                 # Create lookup dictionaries for O(1) access instead of O(n) loops
@@ -839,6 +848,12 @@ async def dashboard(request: Request):
                         "expense_type": "spending"
                     })
                 
+                # Use Circle transactions if available and not empty, otherwise fallback to expenses_list
+                if circle_transactions and isinstance(circle_transactions, list) and len(circle_transactions) > 0:
+                    transactions_list = circle_transactions
+                else:
+                    transactions_list = expenses_list
+                
                 return templates.TemplateResponse("dashboard.html", {
                     "request": request,
                     "total_workers": stats.get("total_workers", 0),
@@ -851,9 +866,14 @@ async def dashboard(request: Request):
                     "dept_stats": dept_stats,
                     "ceo_data": ceo_data,
                     "revenues_list": revenues_list,
-                    "expenses_list": expenses_list
+                    "expenses_list": expenses_list,
+                    "circle_transactions": transactions_list
                 })
             except Exception as e:
+                # Log the error for debugging
+                import traceback
+                print(f"Error loading dashboard: {e}")
+                traceback.print_exc()
                 # If API fails, show empty dashboard
                 return templates.TemplateResponse("dashboard.html", {
                     "request": request,
@@ -867,7 +887,8 @@ async def dashboard(request: Request):
                     "dept_stats": [],
                     "ceo_data": None,
                     "revenues_list": [],
-                    "expenses_list": []
+                    "expenses_list": [],
+                    "circle_transactions": []
                 })
         else:
             # Fallback to in-memory
@@ -931,7 +952,8 @@ async def dashboard(request: Request):
                 "dept_stats": dept_stats,
                 "ceo_data": org["ceo"],
                 "revenues_list": revenues_list,
-                "expenses_list": expenses_list
+                "expenses_list": expenses_list,
+                "circle_transactions": []
             })
     except Exception as e:
         return templates.TemplateResponse("dashboard.html", {
@@ -947,6 +969,7 @@ async def dashboard(request: Request):
             "ceo_data": None,
             "revenues_list": [],
             "expenses_list": [],
+            "circle_transactions": [],
             "error": str(e)
         })
 

@@ -97,36 +97,95 @@
                             </div>
                         </div>
                         <div class="expenses-table-container">
-                            {% if expenses_list %}
+                            {% if circle_transactions %}
                             <table class="expenses-table">
                                 <thead>
                                     <tr>
                                         <th>
                                             Transaction ID
-                                            <svg class="info-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"/>
-                                                <path d="M6 4V6M6 8H6.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </th>
                                         <th>
                                             Reference ID
-                                            <svg class="info-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"/>
-                                                <path d="M6 4V6M6 8H6.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </th>
                                         <th>
                                             Date
-                                            <svg class="info-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"/>
-                                                <path d="M6 4V6M6 8H6.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </th>
                                         <th>
                                             Amount
-                                            <svg class="info-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"/>
-                                                <path d="M6 4V6M6 8H6.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in circle_transactions %}
+                                    <tr class="expense-row" style="cursor: pointer;">
+                                        <td class="expense-transaction-id">
+                                            {% set tx_id = tx.get('transaction_id', 'N/A') %}
+                                            {% if tx_id|length > 14 %}
+                                                {{ tx_id[:7] }}...{{ tx_id[-6:] }}
+                                            {% else %}
+                                                {{ tx_id }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="expense-reference-id">
+                                            {% set ref_id = tx.get('reference_id', 'N/A') %}
+                                            {% if ref_id|length > 12 %}
+                                                {{ ref_id[:6] }}...{{ ref_id[-6:] }}
+                                            {% else %}
+                                                {{ ref_id }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="expense-date">{{ tx.get('date', 'N/A') }}</td>
+                                        <td class="expense-amount" style="color: {% if tx.get('is_incoming', False) %}#10b981{% else %}#ef4444{% endif %}; font-weight: 500;">
+                                            {% if tx.get('is_incoming', False) %}+{% else %}-{% endif %} {{ tx.get('amount_formatted', tx.get('amount', 0)) }} {{ tx.get('currency', 'USDC') }}
+                                        </td>
+                                        <td class="expense-arrow">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% elif expenses_list %}
+                            <table class="expenses-table">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            Transaction ID
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </th>
+                                        <th>
+                                            Reference ID
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </th>
+                                        <th>
+                                            Date
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </th>
+                                        <th>
+                                            Amount
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8 12L4 8L8 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </th>
                                         <th></th>
@@ -149,7 +208,7 @@
                                 </tbody>
                             </table>
                             {% else %}
-                                <div class="empty-state">No expenses recorded</div>
+                                <div class="empty-state">No transactions recorded</div>
                             {% endif %}
                         </div>
                     </div>
