@@ -335,13 +335,12 @@ See `TECHNICAL.md` for complete API documentation.
 4. Test thoroughly
 5. Submit a pull request
 
-## 📝 License
-
-[Your License Here]
 
 ## 👥 Authors
 
-[Your Name/Team]
+Glib Kryzhevych
+Sofiia Andreevna Talaeva
+Mykola Maklakov
 
 ---
 
