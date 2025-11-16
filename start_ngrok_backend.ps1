@@ -37,5 +37,6 @@ Write-Host "Press Ctrl+C to stop ngrok" -ForegroundColor Gray
 Write-Host ""
 
 # Start ngrok
+# ВАЖНО: Убедитесь, что указываете порт 8000 (не 80!)
 ngrok http 8000
 

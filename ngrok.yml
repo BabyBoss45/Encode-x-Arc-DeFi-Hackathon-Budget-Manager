@@ -1,0 +1,19 @@
+version: "2"
+authtoken: # Your ngrok authtoken will be read from default location
+
+tunnels:
+  database:
+    proto: tcp
+    addr: 5432
+    # PostgreSQL database tunnel
+    
+  backend:
+    proto: http
+    addr: 8000
+    # Backend API tunnel
+    
+  frontend:
+    proto: http
+    addr: 3000
+    # Frontend React app tunnel
+
